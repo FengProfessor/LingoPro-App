@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
 import { enrichWord as performAIEnrichment } from '@/lib/ai-enrich';
+import { searchImage } from '@/lib/image-search';
+import { stabilityToLevel } from '@/lib/srs';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper: Lấy hoặc tạo "personal classroom" của user
@@ -35,12 +37,12 @@ async function getOrCreatePersonalClassroom(supabase: any, userId: string): Prom
 /**
  * Background AI enrichment
  */
-async function enrichWord(wordId: string, originalInput: string) {
+async function enrichWord(wordId: string, originalInput: string, customApiKey?: string) {
   try {
-    const parsed = await performAIEnrichment(originalInput);
+    const parsed = await performAIEnrichment(originalInput, customApiKey);
 
     const supabase = createServiceClient();
-    const { error } = await supabase.from('words').update({
+    const updateData = {
       word: parsed.english,
       translation: parsed.vietnamese,
       ipa: parsed.ipa,
@@ -48,6 +50,32 @@ async function enrichWord(wordId: string, originalInput: string) {
       example: parsed.example,
       synonyms: parsed.synonyms,
       antonyms: parsed.antonyms,
+    };
+
+    // ── Global Image Cache & Search ──
+    let imageUrl: string | null = null;
+    
+    // 1. Check if word already has an image in the DB (Global Cache)
+    const { data: cachedWord } = await supabase
+      .from('words')
+      .select('image_url')
+      .eq('word', parsed.english)
+      .not('image_url', 'is', null)
+      .limit(1)
+      .maybeSingle();
+
+    if (cachedWord?.image_url) {
+      imageUrl = cachedWord.image_url;
+      console.log(`✓ Reusing cached image for "${parsed.english}"`);
+    } else {
+      // 2. Search new image using AI descriptive query
+      imageUrl = await searchImage(parsed.english, parsed.image_search_query);
+    }
+
+    // Final Update
+    const { error } = await supabase.from('words').update({
+      ...updateData,
+      image_url: imageUrl
     }).eq('id', wordId);
     
     if (error) console.error(`DB update failed for word "${originalInput}":`, error.message);
@@ -122,8 +150,9 @@ export async function POST(req: Request) {
 
     const skipAI = Boolean(body.skipAI);
     if (!skipAI) {
-      // ── Wait for AI enrichment ──
-      await enrichWord(data.id, word);
+      // ── Wait for AI enrichment with user's personal key if available ──
+      const { data: profile } = await supabase.from('profiles').select('gemini_api_key').eq('id', userId).single();
+      await enrichWord(data.id, word, profile?.gemini_api_key);
     }
     
     return NextResponse.json({
@@ -174,19 +203,20 @@ export async function GET(req: Request) {
     const enriched = (words || []).map((w: any) => {
       const srs = (w.srs_progress || []).find((s: any) => s.user_id === userId) || null;
       const nextReviewDate = srs?.next_review_date ? new Date(srs.next_review_date).getTime() : now;
-      const reviewCount = srs?.review_count || 1; // Default to Level 1
-      const isDue = !srs || nextReviewDate <= now;
       
-      const srsLevel = Math.max(1, Math.min(5, reviewCount));
+      // FSRS calculation: Map stability to a virtual Level 1-6
+      const stability = srs?.stability || 0;
+      const srsLevel = stabilityToLevel(stability);
+      const isDue = !srs || nextReviewDate <= now;
       
       return {
         ...w,
         srs,
         isDue,
-        reviewCount,
-        srsLevel, // Mochi buckets 1 to 5
+        reviewCount: srs?.review_count || 0,
+        srsLevel, 
         mastery: Math.min(100, srsLevel * 20),
-        status: srsLevel >= 4 ? 'mastered' : 'learning',
+        status: srsLevel >= 5 ? 'mastered' : 'learning',
       };
     });
 

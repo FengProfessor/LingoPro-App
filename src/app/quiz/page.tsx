@@ -23,6 +23,14 @@ function shuffle<T>(arr: T[]): T[] {
   return [...arr].sort(() => Math.random() - 0.5);
 }
 
+function parseIpa(raw?: string): string {
+  if (!raw) return '';
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed.uk || parsed.us || (Object.values(parsed)[0] as string) || raw;
+  } catch { return raw; }
+}
+
 function buildChoices(correct: WordItem, all: WordItem[]): string[] {
   const others = shuffle(all.filter(w => w.id !== correct.id))
     .slice(0, 3)
@@ -243,7 +251,7 @@ function QuizContent() {
            <div className="flex items-center justify-center gap-3">
              {current.pos && <Badge className="bg-violet-50 text-violet-600 border-none text-[10px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full">{current.pos}</Badge>}
              {current.ipa && (
-               <span className="text-lg text-slate-400 font-mono tracking-wider">{current.ipa}</span>
+               <span className="text-lg text-slate-400 font-mono tracking-wider">{parseIpa(current.ipa)}</span>
              )}
            </div>
         </Card>

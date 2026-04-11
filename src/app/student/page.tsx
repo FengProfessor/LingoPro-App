@@ -162,13 +162,15 @@ export default function StudentDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ classroomId }),
       });
+      if (!res.ok) throw new Error('Background refresh failed');
       const data = await res.json();
       if (data.refreshed > 0) {
         toast.success(`✅ AI analyzed ${data.refreshed} word(s)!`);
         setTimeout(() => { if (profile?.id) loadData(profile.id); }, 2000);
       }
-    } catch {
-      toast.error('Retry failed.');
+    } catch (err) {
+      // Background maintenance failed - silently log without toast
+      console.warn('Background AI retry failed, will try again next cycle.');
     } finally {
       setIsRetryingAI(false);
     }
@@ -272,36 +274,36 @@ export default function StudentDashboard() {
              <p className="text-muted-foreground font-semibold mb-10">Advanced Spaced Repetition (SRS)</p>
              
              <div className="flex items-end justify-center gap-3 sm:gap-8 h-40 sm:h-56 px-4 border-b-2 border-slate-50 mb-12">
-               {[1, 2, 3, 4, 5, 6].map((level) => {
-                 const count = words.filter((w: any) => (w.srsLevel || 1) === level).length;
-                 const maxCount = Math.max(1, words.length);
-                 const heightPct = Math.max(10, Math.round((count / maxCount) * 100));
-                 
-                 // Intervals mapping for labels
-                 const labels = ['15s', '30s', '60s', '2m', '4m', '8m'];
-                 const colors = [
-                   'bg-rose-400',   // L1
-                   'bg-amber-400',  // L2
-                   'bg-sky-400',    // L3
-                   'bg-indigo-500', // L4
-                   'bg-emerald-500',// L5
-                   'bg-purple-500'  // L6
-                 ];
+                {[1, 2, 3, 4, 5, 6].map((level) => {
+                  const count = words.filter((w: any) => (w.srsLevel || 1) === level).length;
+                  const maxCount = Math.max(1, words.length);
+                  const heightPct = Math.max(10, Math.round((count / maxCount) * 100));
+                  
+                  // Real SRS intervals labels (Aligned with srs.ts)
+                  const labels = ['1d', '3d', '7d', '14d', '1mo', '3mo'];
+                  const colors = [
+                    'bg-rose-400',   // L1
+                    'bg-amber-400',  // L2
+                    'bg-sky-400',    // L3
+                    'bg-indigo-500', // L4
+                    'bg-emerald-500',// L5
+                    'bg-purple-500'  // L6
+                  ];
 
-                 return (
-                   <div key={level} className="flex flex-col items-center justify-end h-full w-10 sm:w-16 group">
-                     <span className="text-xs font-black text-slate-400 mb-2 transition-transform group-hover:scale-125">{count}</span>
-                     <div 
-                       className={`w-full rounded-t-2xl transition-all duration-700 ease-out level-bar-${level} shadow-lg ${colors[level-1]}`}
-                       style={{ height: `${heightPct}%` }}
-                     />
-                     <div className="mt-4 flex flex-col items-center">
-                       <span className="text-[10px] font-black text-slate-500">L{level}</span>
-                       <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">{labels[level-1]}</span>
-                     </div>
-                   </div>
-                 );
-               })}
+                  return (
+                    <div key={level} className="flex flex-col items-center justify-end h-full w-10 sm:w-16 group">
+                      <span className="text-xs font-black text-slate-400 mb-2 transition-transform group-hover:scale-125">{count}</span>
+                      <div 
+                        className={`w-full rounded-t-2xl transition-all duration-700 ease-out level-bar-${level} shadow-lg ${colors[level-1]}`}
+                        style={{ height: `${heightPct}%` }}
+                      />
+                      <div className="mt-4 flex flex-col items-center">
+                        <span className="text-[10px] font-black text-slate-500">Level {level}</span>
+                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">{labels[level-1]}</span>
+                      </div>
+                    </div>
+                  );
+                })}
              </div>
 
              <div className="space-y-6">

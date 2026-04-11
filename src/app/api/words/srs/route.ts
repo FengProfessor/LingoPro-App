@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
-import { calculateNextReview } from '@/lib/srs';
+import { calculateNextReview, mapQualityToRating } from '@/lib/srs';
 
 /**
  * POST /api/words/srs
- * Body: { userId, wordId, quality: 0 | 3 | 5 }
- * - quality 0 = Forgot, 3 = Hard, 5 = Easy
- * Upserts an srs_progress row with the next SM-2 schedule.
+ * Body: { userId, wordId, quality: 0 | 3 | 4 | 5 }
+ * Upserts an srs_progress row using FSRS v5 algorithm.
  */
 export async function POST(req: Request) {
   try {
@@ -29,34 +28,42 @@ export async function POST(req: Request) {
       .eq('word_id', wordId)
       .single();
 
+    // Port existing SM-2 data to FSRS if stability/difficulty are missing
     const currentSRS = existing
       ? {
-          easeFactor: existing.ease_factor,
+          stability: Number(existing.stability) || Number(existing.interval_days) || 0,
+          difficulty: Number(existing.difficulty) || 5,
           interval: existing.interval_days,
           reviewCount: existing.review_count,
           nextReviewDate: existing.next_review_date,
+          lastReviewDate: existing.last_reviewed_at || existing.created_at,
         }
       : {
-          easeFactor: 2.5,
-          interval: 0.5,
-          reviewCount: 1, // Start at Level 1 for new records
+          stability: 0,
+          difficulty: 0,
+          interval: 0,
+          reviewCount: 0,
           nextReviewDate: new Date().toISOString(),
+          lastReviewDate: new Date().toISOString(),
         };
 
-    const newSRS = calculateNextReview(currentSRS, quality as 0 | 3 | 4 | 5);
+    const fsrsRating = mapQualityToRating(quality);
+    const newSRS = calculateNextReview(currentSRS, fsrsRating);
 
-    // Upsert into srs_progress
+    // Upsert into srs_progress with FSRS columns
     const { data, error } = await supabase
       .from('srs_progress')
       .upsert(
         {
           user_id: userId,
           word_id: wordId,
-          ease_factor: newSRS.easeFactor,
+          stability: newSRS.stability,
+          difficulty: newSRS.difficulty,
           interval_days: newSRS.interval,
           review_count: newSRS.reviewCount,
           next_review_date: newSRS.nextReviewDate,
           last_reviewed_at: new Date().toISOString(),
+          algorithm_version: 'fsrs-v5',
         },
         { onConflict: 'user_id,word_id' }
       )

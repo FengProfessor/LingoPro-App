@@ -3,8 +3,9 @@ export const preferredRegion = 'sin1'; // Singapore region for lowest latency to
 
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
-import { calculateNextReview } from '@/lib/srs';
+import { calculateNextReview, mapQualityToRating } from '@/lib/srs';
 import { enrichWord as performAIEnrichment } from '@/lib/ai-enrich';
+import { searchImage } from '@/lib/image-search';
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const API = `https://api.telegram.org/bot${BOT_TOKEN}`;
@@ -18,6 +19,7 @@ interface WordData {
   example?: string;
   synonyms?: string[];
   antonyms?: string[];
+  image_url?: string;
   reviewCount: number;
   distractors?: string[];
 }
@@ -32,11 +34,39 @@ async function sendMessage(chatId: string | number, text: string, extra: object 
   });
 }
 
+async function sendPhoto(chatId: string | number, photoUrl: string, extra: object = {}) {
+  await fetch(`${API}/sendPhoto`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, photo: photoUrl, parse_mode: 'HTML', ...extra }),
+  });
+}
+
+/** Parse IPA from raw JSON string or plain text */
+function parseIpa(raw?: string): string {
+  if (!raw) return '';
+  try {
+    const parsed = JSON.parse(raw);
+    // Prefer UK, fallback US, fallback first value
+    return parsed.uk || parsed.us || Object.values(parsed)[0] as string || raw;
+  } catch {
+    return raw; // already plain text
+  }
+}
+
 async function editMessage(chatId: string | number, messageId: number, text: string, extra: object = {}) {
   await fetch(`${API}/editMessageText`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ chat_id: chatId, message_id: messageId, text, parse_mode: 'HTML', ...extra }),
+  });
+}
+
+async function editMessageCaption(chatId: string | number, messageId: number, caption: string, extra: object = {}) {
+  await fetch(`${API}/editMessageCaption`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, message_id: messageId, caption, parse_mode: 'HTML', ...extra }),
   });
 }
 
@@ -46,15 +76,6 @@ async function answerCallback(callbackQueryId: string, text?: string) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ callback_query_id: callbackQueryId, text }),
   });
-}
-
-async function sendVoice(chatId: string | number, voiceUrl: string) {
-  // Use non-blocking fetch to avoid slowing down the response
-  fetch(`${API}/sendVoice`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, voice: voiceUrl }),
-  }).catch(err => console.error('Error sending voice:', err));
 }
 
 // ─── Session helpers ─────────────────────────────────────────────────────────
@@ -105,7 +126,7 @@ async function getDueWords(supabase: any, userId: string, limit: number) {
   const wordIds = srsRecords.map((r: any) => r.word_id);
   const { data: words } = await supabase
     .from('words')
-    .select('id, word, translation, ipa, pos, example, synonyms, antonyms')
+    .select('id, word, translation, ipa, pos, example, synonyms, antonyms, image_url')
     .in('id', wordIds);
 
   if (!words) return [];
@@ -153,13 +174,13 @@ function formatCloze(sentence: string, word: string): string {
   // Escaping regex special characters if any
   const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const regex = new RegExp(`\\b${escapedWord}\\b`, 'gi');
-  const cloze = sentence.replace(regex, (match) => '`' + '_'.repeat(match.length) + '`');
+  const cloze = sentence.replace(regex, () => '<u>______</u>');
   
   // If no replacement happened (e.g. word is inflected like 'oceans'), 
   // try a simpler replacement for any occurrence of the word
   if (cloze === sentence) {
     const simpleRegex = new RegExp(escapedWord, 'gi');
-    return sentence.replace(simpleRegex, '`____`');
+    return sentence.replace(simpleRegex, '<u>______</u>');
   }
   return cloze;
 }
@@ -186,7 +207,9 @@ async function sendQuestion(chatId: string | number, session: any) {
   const progress = `Từ <b>${current_index + 1}/${total}</b> | ✅ ${correct} ❌ ${wrong}`;
   const posTag = currentWordData.pos ? ` <i>(${currentWordData.pos})</i>` : '';
   const question = `\n\n🔤 <b>${currentWordData.word.toUpperCase()}</b>${posTag}`;
-  const ipa = currentWordData.ipa ? `\n<code>${currentWordData.ipa}</code>` : '';
+  const voiceUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(currentWordData.word)}&tl=en&client=tw-ob`;
+  const ipaText = parseIpa(currentWordData.ipa);
+  const ipa = ipaText ? `\n<code>${ipaText}</code> <a href="${voiceUrl}">🔊</a>` : '';
   
   let cloze = '';
   if (currentWordData.example) {
@@ -201,7 +224,11 @@ async function sendQuestion(chatId: string | number, session: any) {
     callback_data: `ans_${i}`,
   }]);
 
-  await sendMessage(chatId, text, { reply_markup: { inline_keyboard: keyboard } });
+  if (currentWordData.image_url) {
+    await sendPhoto(chatId, currentWordData.image_url, { caption: text, reply_markup: { inline_keyboard: keyboard } });
+  } else {
+    await sendMessage(chatId, text, { reply_markup: { inline_keyboard: keyboard } });
+  }
   return { choices, correctIndex };
 }
 
@@ -283,33 +310,66 @@ async function handleStartQuiz(supabase: any, chatId: string, telegramId: string
   }
 
   // 2. Precompute distractors AND track words that need "Self-Healing" data
-  const wordsWithDistractors: WordData[] = [];
   const enrichmentPromises: Promise<any>[] = [];
 
+  // Fetch student's custom API key if available
+  const { data: profile } = await supabase.from('profiles').select('gemini_api_key').eq('id', user.id).single();
+  const customApiKey = profile?.gemini_api_key;
+
   for (const word of dueWords as WordData[]) {
-    // Self-Healing: If example is missing, enrich it now!
-    if (!word.example || !word.pos) {
-      const p = performAIEnrichment(word.word).then(async (parsed) => {
-        word.example = parsed.example;
-        word.pos = parsed.pos;
-        word.ipa = parsed.ipa;
-        word.synonyms = parsed.synonyms;
-        word.antonyms = parsed.antonyms;
-        
-        // Save to DB so we don't enrich it again
-        await supabase.from('words').update({
-          example: parsed.example,
-          pos: parsed.pos,
-          ipa: parsed.ipa,
-          synonyms: parsed.synonyms,
-          antonyms: parsed.antonyms,
-          word: parsed.english,     // Normalize case etc
-          translation: parsed.vietnamese
-        }).eq('id', word.id);
-      }).catch(err => console.error('Enrichment failed in self-healing:', err));
+    // Self-Healing: If example, pos, or image is missing, enrich it now!
+    if (!word.example || !word.pos || !word.image_url) {
+      const p = (async () => {
+        try {
+          // 1. AI Enrichment if text data missing
+          if (!word.example || !word.pos) {
+            const parsed = await performAIEnrichment(word.word, customApiKey);
+            word.example = parsed.example;
+            word.pos = parsed.pos;
+            word.ipa = parsed.ipa;
+            word.synonyms = parsed.synonyms;
+            word.antonyms = parsed.antonyms;
+            word.translation = parsed.vietnamese;
+          }
+
+          // 2. Image Enrichment if missing
+          if (!word.image_url) {
+            // Check Global Cache first
+            const { data: cached } = await supabase.from('words').select('image_url').eq('word', word.word).not('image_url', 'is', null).limit(1).maybeSingle();
+            if (cached?.image_url) {
+              word.image_url = cached.image_url;
+              console.log(`✓ Reusing cached image for "${word.word}" in Self-Healing`);
+            } else {
+              word.image_url = (await searchImage(word.word)) || undefined;
+            }
+          }
+
+          // 3. Update DB
+          await supabase.from('words').update({
+            example: word.example,
+            pos: word.pos,
+            ipa: word.ipa,
+            synonyms: word.synonyms,
+            antonyms: word.antonyms,
+            image_url: word.image_url,
+            translation: word.translation
+          }).eq('id', word.id);
+        } catch (err) {
+          console.error(`Self-healing failed for "${word.word}":`, err);
+        }
+      })();
       enrichmentPromises.push(p);
     }
+  }
 
+  // Await all enrichments (parallel) so the session has the best data
+  if (enrichmentPromises.length > 0) {
+    await Promise.all(enrichmentPromises);
+  }
+
+  // 3. Precompute distractors using FINAL enriched data
+  const wordsWithDistractors: WordData[] = [];
+  for (const word of dueWords as WordData[]) {
     let others = (dueWords as WordData[])
       .filter((w: WordData) => w.id !== word.id && w.translation && !w.translation.toLowerCase().includes('failed'))
       .map((w: WordData) => w.translation);
@@ -324,11 +384,6 @@ async function handleStartQuiz(supabase: any, chatId: string, telegramId: string
       if (extras) others = [...others, ...extras.map((e: any) => e.translation)];
     }
     wordsWithDistractors.push({ ...word, distractors: shuffleArray([...new Set(others)]) });
-  }
-
-  // Await all enrichments (parallel) so the session has the best data
-  if (enrichmentPromises.length > 0) {
-    await Promise.all(enrichmentPromises);
   }
 
   const session = {
@@ -390,7 +445,9 @@ async function handleAnswer(supabase: any, chatId: string, telegramId: string, m
   const progress = `Từ <b>${current_index + 1}/${word_queue.length}</b> | ✅ ${updatedCorrect} ❌ ${updatedWrong}`;
   const posTag = current_word.pos ? ` <i>(${current_word.pos})</i>` : '';
   const wordText = `\n\n🔤 <b>${current_word.word.toUpperCase()}</b>${posTag}`;
-  const ipa = current_word.ipa ? `\n<code>${current_word.ipa}</code>` : '';
+  const voiceUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(current_word.word)}&tl=en&client=tw-ob`;
+  const ipaTextAnswer = parseIpa(current_word.ipa);
+  const ipa = ipaTextAnswer ? `\n<code>${ipaTextAnswer}</code> <a href="${voiceUrl}">🔊</a>` : '';
   
   let exampleFeedback = '';
   if (current_word.example) {
@@ -410,10 +467,8 @@ async function handleAnswer(supabase: any, chatId: string, telegramId: string, m
   const resultMsg = `${progress}${wordText}${ipa}${exampleFeedback}${extraInfo}\n\n${resultText}\n\n${choicesText}`;
 
   // 1. FAST PATH: Update UI in Telegram immediately
-  const voiceUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(current_word.word)}&tl=en&client=tw-ob`;
   const uiPromises: Promise<any>[] = [
-    answerCallback(callbackId),
-    sendVoice(chatId, voiceUrl)
+    answerCallback(callbackId)
   ];
   
   // Pre-update session state
@@ -423,10 +478,18 @@ async function handleAnswer(supabase: any, chatId: string, telegramId: string, m
 
   if (isLast) {
     const nextKeyboard = [[{ text: '📊 Xem kết quả', callback_data: 'finish_quiz' }]];
-    uiPromises.push(editMessage(chatId, msgId, resultMsg, { reply_markup: { inline_keyboard: nextKeyboard } }));
+    if (current_word.image_url) {
+      uiPromises.push(editMessageCaption(chatId, msgId, resultMsg, { reply_markup: { inline_keyboard: nextKeyboard } }));
+    } else {
+      uiPromises.push(editMessage(chatId, msgId, resultMsg, { reply_markup: { inline_keyboard: nextKeyboard } }));
+    }
   } else {
     // Show correct answer for current question, remove buttons
-    uiPromises.push(editMessage(chatId, msgId, resultMsg, { reply_markup: { inline_keyboard: [] } }));
+    if (current_word.image_url) {
+      uiPromises.push(editMessageCaption(chatId, msgId, resultMsg, { reply_markup: { inline_keyboard: [] } }));
+    } else {
+      uiPromises.push(editMessage(chatId, msgId, resultMsg, { reply_markup: { inline_keyboard: [] } }));
+    }
     
     // Send next question immediately below it
     uiPromises.push(
@@ -442,7 +505,7 @@ async function handleAnswer(supabase: any, chatId: string, telegramId: string, m
   const uiUpdatePromise = Promise.all(uiPromises);
 
   // 2. SLOW PATH: Database operations
-  // Calculate next SRS date
+  // Calculate next SRS date using FSRS v5
   const { data: existing } = await supabase
     .from('srs_progress')
     .select('*')
@@ -451,10 +514,26 @@ async function handleAnswer(supabase: any, chatId: string, telegramId: string, m
     .single();
 
   const currentSRS = existing
-    ? { easeFactor: existing.ease_factor, interval: existing.interval_days, reviewCount: existing.review_count, nextReviewDate: existing.next_review_date }
-    : { easeFactor: 2.5, interval: 0, reviewCount: 1, nextReviewDate: new Date().toISOString() };
+    ? { 
+        stability: Number(existing.stability) || Number(existing.interval_days) || 0,
+        difficulty: Number(existing.difficulty) || 5,
+        interval: existing.interval_days,
+        reviewCount: existing.review_count, 
+        nextReviewDate: existing.next_review_date,
+        lastReviewDate: existing.last_reviewed_at || existing.created_at
+      }
+    : { 
+        stability: 0, 
+        difficulty: 0, 
+        interval: 0, 
+        reviewCount: 0, 
+        nextReviewDate: new Date().toISOString(),
+        lastReviewDate: new Date().toISOString()
+      };
 
-  const newSRS = calculateNextReview(currentSRS, quality as 0 | 4);
+  // Map Telegram quality (0, 4) to FSRS rating (1, 3)
+  const fsrsRating = mapQualityToRating(quality);
+  const newSRS = calculateNextReview(currentSRS, fsrsRating);
 
   // Execute UI update and DB saves at the same time
   await Promise.all([
@@ -462,11 +541,13 @@ async function handleAnswer(supabase: any, chatId: string, telegramId: string, m
     supabase.from('srs_progress').upsert({
       user_id,
       word_id: current_word.id,
-      ease_factor: newSRS.easeFactor,
+      stability: newSRS.stability,
+      difficulty: newSRS.difficulty,
       interval_days: newSRS.interval,
       review_count: newSRS.reviewCount,
       next_review_date: newSRS.nextReviewDate,
       last_reviewed_at: new Date().toISOString(),
+      algorithm_version: 'fsrs-v5-telegram',
     }, { onConflict: 'user_id,word_id' }),
     saveSession(supabase, telegramId, user_id, session)
   ]);
@@ -511,9 +592,13 @@ async function handleFinish(supabase: any, chatId: string, telegramId: string, m
       : `🌟 Tuyệt vời! Hãy duy trì phong độ này!\n`) +
     `\n👉 <a href="https://lingopro-nu.vercel.app/student">Xem tiến độ trên web</a>`;
 
-  await editMessage(chatId, msgId, summary, {
-    reply_markup: { inline_keyboard: [[{ text: '🔄 Ôn tiếp', callback_data: 'go_start' }]] }
-  });
+  const lastWord = sessionRecord.session_data?.current_word;
+  const finishKeyboard = { reply_markup: { inline_keyboard: [[{ text: '🔄 Ôn tiếp', callback_data: 'go_start' }]] } };
+  if (lastWord?.image_url) {
+    await editMessageCaption(chatId, msgId, summary, finishKeyboard);
+  } else {
+    await editMessage(chatId, msgId, summary, finishKeyboard);
+  }
   await answerCallback(callbackId);
   await clearSession(supabase, telegramId);
 }

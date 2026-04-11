@@ -1,79 +1,131 @@
 /**
- * SM-2 Spaced Repetition Algorithm
- * Quality ratings:
- * 0 = Forgot completely
- * 3 = Hard (correct with difficulty)
- * 5 = Easy (perfect recall)
+ * LingoPro SRS Algorithm — Powered by FSRS v5 (Free Spaced Repetition Scheduler)
+ * 
+ * References:
+ * https://github.com/open-spaced-repetition/fsrs4anki/wiki/ABC-of-FSRS
  */
+
 export interface SRSData {
-  easeFactor: number;    // Starts at 2.5
-  interval: number;      // Days until next review
-  reviewCount: number;   // Total times reviewed
-  nextReviewDate: string; // ISO date string
+  stability: number;       // S: Days for retention to drop to 90%
+  difficulty: number;      // D: 1 (easy) to 10 (hard)
+  interval: number;        // Calculated days until next review
+  reviewCount: number;     // Number of successful reviews
+  nextReviewDate: string;  // ISO string
+  lastReviewDate?: string; // ISO string of previous review
 }
 
 /**
- * MochiVocab 5-Level Spaced Repetition Algorithm
- * Quality ratings:
- * 0 = Forgot completely (Drops to Level 1)
- * 3/5 = Hard/Easy (Advances 1 Level, max 5)
+ * Default FSRS v5 weights (Baseline optimized on millions of reviews)
  */
-export interface SRSData {
-  easeFactor: number;    // Unused in 5-level but kept for DB compat
-  interval: number;      // Days until next review
-  reviewCount: number;   // Acts as the "Level" (1-5)
-  nextReviewDate: string; // Full ISO string for precise 12h timings
+const W = [
+  0.4025, 1.4612, 3.8738, 11.0,  // Initial stability for Again, Hard, Good, Easy
+  4.93, 0.94, 0.86,              // Difficulty update weights
+  0.01, 1.49, 0.14,              // Stability update weights (Success)
+  0.94, 2.18, 0.05, 0.34, 1.26,  // Stability update weights (Failure)
+  0.29, 2.61,                    // Retrievability impact
+  0.05, 0.5                      // Same-day review penalty (for completeness)
+];
+
+const TARGET_RETENTION = 0.9; // Aim for 90% recall probability
+const DECAY = -0.1; // -log10(0.9) approx for power law or exp
+
+/**
+ * Ratings mapping:
+ * 1: Again (Forgot)
+ * 2: Hard
+ * 3: Good
+ * 4: Easy (Mastered)
+ */
+export type FSRSRating = 1 | 2 | 3 | 4;
+
+/**
+ * Calculates Retrievability (R) at time t given Stability (S)
+ * Formula: R = (1 + t / (9 * S))^-1  (Power law version used in FSRS v5)
+ */
+export function calculateRetrievability(daysSinceLastReview: number, stability: number): number {
+  return Math.pow(1 + daysSinceLastReview / (9 * stability), -1);
 }
 
-export function calculateNextReview(current: SRSData, quality: 0 | 3 | 4 | 5): SRSData {
-  let { reviewCount } = current;
+/**
+ * Calculates Next Interval (I) based on Stability (S) and Desired Retention
+ * I = 9 * S * (R^-1 - 1)
+ */
+export function calculateInterval(stability: number, retention: number = TARGET_RETENTION): number {
+  return Math.max(1, Math.round(9 * stability * (1 / retention - 1)));
+}
 
-  if (quality === 0) {
-    // Forgot → Reset to Level 1
-    reviewCount = 1;
-  } else if (quality === 5) {
-    // Mastered → Jump to Level 5 (Minimum) or Level 6 if already at Level 5
-    reviewCount = Math.max(5, (reviewCount || 0) + 1);
-    if (reviewCount > 6) reviewCount = 6;
+export function calculateNextReview(current: SRSData, rating: FSRSRating): SRSData {
+  let { stability, difficulty, reviewCount, lastReviewDate } = current;
+  
+  // 1. Initial review handling (if stability is 0)
+  if (stability === 0) {
+    stability = W[rating - 1];
+    difficulty = Math.max(1, Math.min(10, W[4] - (rating - 3) * W[5]));
+    reviewCount = rating > 1 ? 1 : 0;
   } else {
-    // Correct (4) or Hard (3) → Advance 1 Level (Max 6)
-    reviewCount = Math.min(6, (reviewCount || 0) + 1);
-    if (reviewCount === 0) reviewCount = 1;
+    // 2. Existing card update
+    const now = new Date();
+    const last = lastReviewDate ? new Date(lastReviewDate) : new Date();
+    const elapsedDays = Math.max(0, (now.getTime() - last.getTime()) / (1000 * 60 * 60 * 24));
+    const retrievability = calculateRetrievability(elapsedDays, stability);
+
+    // Update Difficulty
+    difficulty = Math.max(1, Math.min(10, difficulty - W[6] * (rating - 3)));
+
+    if (rating > 1) {
+      // Success update
+      const stabilityIncrease = 1 + Math.exp(W[8]) * (11 - difficulty) * Math.pow(stability, -W[9]) * (Math.exp(W[10] * (1 - retrievability)) - 1);
+      stability = stability * stabilityIncrease;
+      reviewCount++;
+    } else {
+      // Failure (Again)
+      const stabilityDecrease = Math.max(0.1, W[11] * Math.pow(difficulty, -W[12]) * (Math.pow(stability + 1, W[13]) - 1) * Math.exp(W[14] * (1 - retrievability)));
+      stability = stabilityDecrease;
+      reviewCount = 0; // Reset count or treat as lapse
+    }
   }
 
-  // DEBUG MODE: Intervals in SECONDS for easy testing
-  let intervalSeconds = 15; // Level 1: 15s
-  if (reviewCount === 2) intervalSeconds = 30; // Level 2: 30s
-  else if (reviewCount === 3) intervalSeconds = 60; // Level 3: 60s
-  else if (reviewCount === 4) intervalSeconds = 120; // Level 4: 120s
-  else if (reviewCount === 5) intervalSeconds = 240; // Level 5: 240s
-  else if (reviewCount === 6) intervalSeconds = 480; // Level 6: 480s (8m recall)
-
+  const intervalDays = calculateInterval(stability);
   const nextDate = new Date();
-  nextDate.setSeconds(nextDate.getSeconds() + intervalSeconds);
+  nextDate.setDate(nextDate.getDate() + intervalDays);
 
   return {
-    easeFactor: 2.5,
-    interval: intervalSeconds / 86400, // Store as fraction of day for DB
+    stability,
+    difficulty,
+    interval: intervalDays,
     reviewCount,
     nextReviewDate: nextDate.toISOString(),
+    lastReviewDate: new Date().toISOString(),
   };
 }
 
 export function defaultSRS(): SRSData {
-  const nextDate = new Date();
-  nextDate.setSeconds(nextDate.getSeconds() + 15); // Default Level 1 is 15s for testing
   return {
-    easeFactor: 2.5,
-    interval: 15 / 86400,
-    reviewCount: 1, // Start at Level 1
-    nextReviewDate: nextDate.toISOString(),
-  };
+    stability: 0,
+    difficulty: 0,
+    interval: 0,
+    reviewCount: 0,
+    nextReviewDate: new Date().toISOString(),
+  }
 }
 
-export function isDueToday(nextReviewDate: string): boolean {
-  if (!nextReviewDate) return true;
-  const now = Date.now();
-  const next = new Date(nextReviewDate).getTime();
-  return next <= now;
+/** Maps LingoPro button quality (0,3,4,5) to FSRS Rating (1,2,3,4) */
+export function mapQualityToRating(quality: number): FSRSRating {
+  if (quality === 0) return 1; // Again
+  if (quality === 3) return 2; // Hard
+  if (quality === 4) return 3; // Good
+  return 4; // Mastered -> Easy
+}
+
+/** 
+ * Maps Stability to virtual Levels (1-6) for Dashboard visualization 
+ * Based on Typical Anki/Mochi interval progression
+ */
+export function stabilityToLevel(stability: number): number {
+  if (stability < 2) return 1;
+  if (stability < 5) return 2;
+  if (stability < 10) return 3;
+  if (stability < 30) return 4;
+  if (stability < 90) return 5;
+  return 6;
 }

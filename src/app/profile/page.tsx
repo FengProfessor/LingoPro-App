@@ -52,15 +52,17 @@ export default function ProfilePage() {
     router.push('/auth');
   };
 
-  const saveTelegramId = async () => {
+  const saveSettings = async () => {
     if (!user?.id) return;
     setIsSavingTg(true);
     try {
-      const { error } = await supabase.from('profiles').update({ telegram_id: telegramId }).eq('id', user.id);
+      const { error } = await supabase.from('profiles').update({ 
+        telegram_id: telegramId
+      }).eq('id', user.id);
       if (error) throw error;
-      toast.success('Telegram ID configuration saved!');
+      toast.success('Settings updated successfully!');
     } catch (err: any) {
-      toast.error(err.message || 'Error saving Telegram ID');
+      toast.error(err.message || 'Error saving settings');
     } finally {
       setIsSavingTg(false);
     }
@@ -198,14 +200,15 @@ export default function ProfilePage() {
                 className="flex-1 text-xs text-white font-mono bg-black/40 rounded-lg px-3 py-2.5 outline-none border border-white/5 focus:border-indigo-500 transition-colors placeholder:text-slate-600"
               />
               <button
-                onClick={saveTelegramId}
+                onClick={saveSettings}
                 disabled={isSavingTg}
                 className="flex items-center gap-1.5 bg-indigo-600/80 text-white text-xs font-black px-4 py-2.5 rounded-lg hover:bg-indigo-600 transition-all active:scale-95 border border-indigo-500/50 shadow-lg shadow-indigo-500/20 shrink-0 disabled:opacity-50"
               >
-                {isSavingTg ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                {isSavingTg ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Settings'}
               </button>
             </div>
-            
+
+
             <button
               onClick={testTelegramNotify}
               disabled={isTestingTg || !telegramId}

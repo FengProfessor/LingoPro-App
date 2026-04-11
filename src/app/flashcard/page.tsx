@@ -18,11 +18,20 @@ interface WordItem {
   ipa: string;
   pos: string;
   example: string;
+  image_url?: string;
   isDue: boolean;
   reviewCount: number;
   srsLevel: number;
   mastery: number;
   srs: any;
+}
+
+function parseIpa(raw?: string): string {
+  if (!raw) return '';
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed.uk || parsed.us || (Object.values(parsed)[0] as string) || raw;
+  } catch { return raw; }
 }
 
 function FlashcardContent() {
@@ -285,28 +294,65 @@ function FlashcardContent() {
             <Card className="absolute inset-0 border-none shadow-2xl shadow-indigo-100 flex flex-col items-center justify-center p-10 text-center rounded-[40px] bg-white border-b-8 border-slate-200"
               style={{ backfaceVisibility: 'hidden' }}>
               <CardContent className="p-0 w-full flex flex-col items-center gap-6">
-                <Badge className="bg-amber-50 text-amber-600 border-none text-[10px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full mb-4">
+                <Badge className="bg-amber-50 text-amber-600 border-none text-[10px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full mb-2">
                   {current.isDue ? '⚡ REVIEW TIME' : '📖 NEW WORD'}
                 </Badge>
+
+                {/* Vocabulary Image */}
+                {current.image_url && (
+                  <div className="w-full h-40 rounded-3xl overflow-hidden border border-slate-100 shadow-inner relative group/img">
+                    <img
+                      src={current.image_url}
+                      alt={current.word}
+                      className="w-full h-full object-cover transition-all duration-700 opacity-0 group-hover/img:scale-110"
+                      onLoad={(e) => (e.currentTarget.style.opacity = '1')}
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                    />
+                    <button 
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        toast.info('Finding a better image...', { icon: '🔍' });
+                        try {
+                          const res = await fetch('/api/words/refresh-image', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ wordId: current.id })
+                          });
+                          const data = await res.json();
+                          if (data.success) {
+                             setCurrent(prev => prev ? { ...prev, image_url: data.imageUrl } : null);
+                             toast.success('Updated image!');
+                          }
+                        } catch {
+                           toast.error('Could not update image.');
+                        }
+                      }}
+                      className="absolute top-3 right-3 p-2.5 bg-black/40 hover:bg-black/70 text-white rounded-full backdrop-blur-md opacity-40 group-hover/img:opacity-100 transition-all border border-white/20 shadow-xl z-20"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+
                 {/* Only use typing mode if word is fully analyzed */}
                 {current.srsLevel >= 2 && !hasSpelledCorrectly &&
                   current.translation && !current.translation.includes('failed') && !current.translation.includes('Analyzing') ? (
                   // Active Recall Typing Mode (MochiVocab Style)
                   <div className="w-full flex flex-col items-center gap-6 animate-in fade-in zoom-in duration-300">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-transform cursor-pointer shadow-inner disabled:opacity-50"
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform cursor-pointer shadow-sm border border-indigo-200 group"
                            onClick={(e) => { e.stopPropagation(); speak(current.word, 1.0); }}>
-                        <Volume2 className="h-6 w-6 text-indigo-600" />
+                        <Volume2 className="h-8 w-8 text-indigo-600 group-hover:animate-pulse" />
                       </div>
-                      <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-transform cursor-pointer shadow-inner"
+                      <div className="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform cursor-pointer shadow-sm border border-amber-200 group"
                            title="Slow pronunciation"
                            onClick={(e) => { e.stopPropagation(); speak(current.word, 0.6); }}>
-                        <Snail className="h-6 w-6 text-amber-600 font-black" />
+                        <Snail className="h-8 w-8 text-amber-600 font-black group-hover:animate-bounce" />
                       </div>
                     </div>
                     
                      <p className="text-xl font-bold text-slate-800 break-words">{current.translation}</p>
-                     {current.ipa && <p className="text-sm font-mono text-slate-400">{current.ipa}</p>}
+                     {current.ipa && <p className="text-sm font-mono text-slate-400">{parseIpa(current.ipa)}</p>}
 
                     <div className="w-full relative mt-4">
                       <input 
@@ -379,7 +425,7 @@ function FlashcardContent() {
                    <h3 className="text-7xl font-black tracking-tight leading-tight mb-2">
                      {current.word}
                    </h3>
-                   {current.ipa && <p className="text-2xl text-indigo-200 font-mono tracking-widest">{current.ipa}</p>}
+                   {current.ipa && <p className="text-2xl text-indigo-200 font-mono tracking-widest">{parseIpa(current.ipa)}</p>}
                    <p className="text-lg text-indigo-200 mt-2">{current.translation}</p>
                 </div>
                 
@@ -387,26 +433,22 @@ function FlashcardContent() {
                   {current.pos && <Badge className="bg-white/20 text-white border-none text-[10px] font-black uppercase tracking-widest px-3">{current.pos}</Badge>}
                   
                   {/* Normal Speed */}
-                  <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform cursor-pointer group"
+                  <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform cursor-pointer group border border-white/20"
                        onClick={(e) => { 
                          e.stopPropagation(); 
-                         const englishWord = /[a-zA-Z]/.test(current.word) && !/[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/.test(current.word)
-                           ? current.word : current.translation;
-                         speak(englishWord, 1.0); 
+                         speak(current.word, 1.0); 
                        }}>
-                    <Volume2 className="h-6 w-6 text-white" />
+                    <Volume2 className="h-8 w-8 text-white" />
                   </div>
 
                   {/* Slow Speed */}
-                  <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform cursor-pointer group border border-white/20"
+                  <div className="w-16 h-16 bg-white/10 rounded-3xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform cursor-pointer group border border-white/20"
                        title="Slow pronunciation"
                        onClick={(e) => { 
                          e.stopPropagation(); 
-                         const englishWord = /[a-zA-Z]/.test(current.word) && !/[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/.test(current.word)
-                           ? current.word : current.translation;
-                         speak(englishWord, 0.6); 
+                         speak(current.word, 0.6); 
                        }}>
-                    <Snail className="h-6 w-6 text-white/80" />
+                    <Snail className="h-8 w-8 text-white/80" />
                   </div>
                 </div>
 
@@ -427,25 +469,25 @@ function FlashcardContent() {
           {flipped ? (
             <div className="flex gap-4 animate-in fade-in slide-in-from-bottom-8 duration-500 cubic-bezier(0.16, 1, 0.3, 1)">
               <button
-                className="flex-1 h-20 rounded-[28px] bg-white border-b-4 border-rose-200 text-rose-600 font-black text-xs uppercase tracking-tighter hover:bg-rose-50 hover:border-rose-300 transition-all active:translate-y-1 active:border-b-0"
+                className="flex-1 h-20 rounded-[28px] bg-white border border-rose-100 border-b-4 border-b-rose-200 text-rose-600 font-black text-xs uppercase tracking-tighter hover:bg-rose-50 hover:border-rose-300 transition-all active:translate-y-1 active:border-b-0 shadow-sm"
                 onClick={() => handleRate(0)}
               >
                 Forgot
               </button>
               <button
-                className="flex-1 h-20 rounded-[28px] bg-white border-b-4 border-amber-200 text-amber-600 font-black text-xs uppercase tracking-tighter hover:bg-amber-50 hover:border-amber-300 transition-all active:translate-y-1 active:border-b-0"
+                className="flex-1 h-20 rounded-[28px] bg-white border border-amber-100 border-b-4 border-b-amber-200 text-amber-600 font-black text-xs uppercase tracking-tighter hover:bg-amber-50 hover:border-amber-300 transition-all active:translate-y-1 active:border-b-0 shadow-sm"
                 onClick={() => handleRate(3)}
               >
                 Hard
               </button>
               <button
-                className="flex-1 h-20 rounded-[28px] bg-white border-b-4 border-blue-200 text-blue-600 font-black text-xs uppercase tracking-tighter hover:bg-blue-50 hover:border-blue-300 transition-all active:translate-y-1 active:border-b-0"
+                className="flex-1 h-20 rounded-[28px] bg-white border border-blue-100 border-b-4 border-b-blue-200 text-blue-600 font-black text-xs uppercase tracking-tighter hover:bg-blue-50 hover:border-blue-300 transition-all active:translate-y-1 active:border-b-0 shadow-sm"
                 onClick={() => handleRate(4)}
               >
                 Good
               </button>
               <button
-                className="flex-1 h-20 rounded-[28px] bg-indigo-600 border-b-4 border-indigo-800 text-white font-black text-xs uppercase tracking-tighter shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all active:translate-y-1 active:border-b-0"
+                className="flex-1 h-20 rounded-[28px] bg-indigo-600 border-b-4 border-indigo-800 text-white font-black text-xs uppercase tracking-tighter shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:border-indigo-800 transition-all active:translate-y-1 active:border-b-0"
                 onClick={() => handleRate(5)}
               >
                 Mastered
