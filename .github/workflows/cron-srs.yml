@@ -1,0 +1,14 @@
+name: 5-Minute SRS Notification Scan
+
+on:
+  schedule:
+    - cron: '*/5 * * * *' # Every 5 minutes (GitHub Action minimum)
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  ping-cron:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger LingoPro Notification API
+        run: |
+          curl -i -X GET "https://lingopro-nu.vercel.app/api/cron/telegram-due?secret=lingopro_secret_123"
