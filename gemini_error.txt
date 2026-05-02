@@ -1,0 +1,35 @@
+[2026-04-21T04:41:25.789Z] [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [429 Too Many Requests] You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. 
+* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-2.0-flash
+* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-2.0-flash
+* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-2.0-flash
+Please retry in 33.925366383s. [{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Learn more about Gemini API quotas","url":"https://ai.google.dev/gemini-api/docs/rate-limits"}]},{"@type":"type.googleapis.com/google.rpc.QuotaFailure","violations":[{"quotaMetric":"generativelanguage.googleapis.com/generate_content_free_tier_input_token_count","quotaId":"GenerateContentInputTokensPerModelPerMinute-FreeTier","quotaDimensions":{"location":"global","model":"gemini-2.0-flash"}},{"quotaMetric":"generativelanguage.googleapis.com/generate_content_free_tier_requests","quotaId":"GenerateRequestsPerMinutePerProjectPerModel-FreeTier","quotaDimensions":{"model":"gemini-2.0-flash","location":"global"}},{"quotaMetric":"generativelanguage.googleapis.com/generate_content_free_tier_requests","quotaId":"GenerateRequestsPerDayPerProjectPerModel-FreeTier","quotaDimensions":{"model":"gemini-2.0-flash","location":"global"}}]},{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"33s"}]
+Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent: [429 Too Many Requests] You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. 
+* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-2.0-flash
+* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-2.0-flash
+* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-2.0-flash
+Please retry in 33.925366383s. [{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Learn more about Gemini API quotas","url":"https://ai.google.dev/gemini-api/docs/rate-limits"}]},{"@type":"type.googleapis.com/google.rpc.QuotaFailure","violations":[{"quotaMetric":"generativelanguage.googleapis.com/generate_content_free_tier_input_token_count","quotaId":"GenerateContentInputTokensPerModelPerMinute-FreeTier","quotaDimensions":{"location":"global","model":"gemini-2.0-flash"}},{"quotaMetric":"generativelanguage.googleapis.com/generate_content_free_tier_requests","quotaId":"GenerateRequestsPerMinutePerProjectPerModel-FreeTier","quotaDimensions":{"model":"gemini-2.0-flash","location":"global"}},{"quotaMetric":"generativelanguage.googleapis.com/generate_content_free_tier_requests","quotaId":"GenerateRequestsPerDayPerProjectPerModel-FreeTier","quotaDimensions":{"model":"gemini-2.0-flash","location":"global"}}]},{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"33s"}]
+    at handleResponseNotOk (D:\Vocab\web-app\.next\dev\server\chunks\node_modules_94f6d48b._.js:9962:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async makeRequest (D:\Vocab\web-app\.next\dev\server\chunks\node_modules_94f6d48b._.js:9934:9)
+    at async generateContent (D:\Vocab\web-app\.next\dev\server\chunks\node_modules_94f6d48b._.js:10376:22)
+    at async POST (D:\Vocab\web-app\.next\dev\server\chunks\[root-of-the-server]__c14e35d5._.js:93:24)
+    at async AppRouteRouteModule.do (D:\Vocab\web-app\node_modules\next\dist\compiled\next-server\app-route-turbo.runtime.dev.js:5:37866)
+    at async AppRouteRouteModule.handle (D:\Vocab\web-app\node_modules\next\dist\compiled\next-server\app-route-turbo.runtime.dev.js:5:45156)
+    at async responseGenerator (D:\Vocab\web-app\.next\dev\server\chunks\node_modules_94f6d48b._.js:16874:38)
+    at async AppRouteRouteModule.handleResponse (D:\Vocab\web-app\node_modules\next\dist\compiled\next-server\app-route-turbo.runtime.dev.js:1:191938)
+    at async handleResponse (D:\Vocab\web-app\.next\dev\server\chunks\node_modules_94f6d48b._.js:16937:32)
+    at async Module.handler (D:\Vocab\web-app\.next\dev\server\chunks\node_modules_94f6d48b._.js:16990:13)
+    at async DevServer.renderToResponseWithComponentsImpl (D:\Vocab\web-app\node_modules\next\dist\server\base-server.js:1442:9)
+    at async DevServer.renderPageComponent (D:\Vocab\web-app\node_modules\next\dist\server\base-server.js:1494:24)
+    at async DevServer.renderToResponseImpl (D:\Vocab\web-app\node_modules\next\dist\server\base-server.js:1544:32)
+    at async DevServer.pipeImpl (D:\Vocab\web-app\node_modules\next\dist\server\base-server.js:1038:25)
+    at async NextNodeServer.handleCatchallRenderRequest (D:\Vocab\web-app\node_modules\next\dist\server\next-server.js:395:17)
+    at async DevServer.handleRequestImpl (D:\Vocab\web-app\node_modules\next\dist\server\base-server.js:929:17)
+    at async D:\Vocab\web-app\node_modules\next\dist\server\dev\next-dev-server.js:387:20
+    at async Span.traceAsyncFn (D:\Vocab\web-app\node_modules\next\dist\trace\trace.js:157:20)
+    at async DevServer.handleRequest (D:\Vocab\web-app\node_modules\next\dist\server\dev\next-dev-server.js:383:24)
+    at async invokeRender (D:\Vocab\web-app\node_modules\next\dist\server\lib\router-server.js:248:21)
+    at async handleRequest (D:\Vocab\web-app\node_modules\next\dist\server\lib\router-server.js:447:24)
+    at async requestHandlerImpl (D:\Vocab\web-app\node_modules\next\dist\server\lib\router-server.js:496:13)
+    at async Server.requestListener (D:\Vocab\web-app\node_modules\next\dist\server\lib\start-server.js:226:13)
+

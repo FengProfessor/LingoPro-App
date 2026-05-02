@@ -1,0 +1,250 @@
+[
+  {
+    "word": "band",
+    "familyWords": [],
+    "pronunciations": [
+      {
+        "ipa": "/bænd/",
+        "audio_uk": "https://dict.youdao.com/dictvoice?audio=band&type=1",
+        "audio_us": "https://dict.youdao.com/dictvoice?audio=band&type=2"
+      }
+    ],
+    "results": [
+      {
+        "meanings": [
+          {
+            "pos": "Danh từ",
+            "definition": "Một nhóm nhạc sĩ chơi nhạc pop, rock, hoặc jazz cùng nhau.",
+            "example": "The band played their hit songs.",
+            "collocations": ["rock/jazz band", "form a band"]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "word": "bank",
+    "familyWords": ["banker (n)", "banking (n)"],
+    "pronunciations": [
+      {
+        "ipa": "/bæŋk/",
+        "audio_uk": "https://dict.youdao.com/dictvoice?audio=bank&type=1",
+        "audio_us": "https://dict.youdao.com/dictvoice?audio=bank&type=2"
+      }
+    ],
+    "results": [
+      {
+        "meanings": [
+          {
+            "pos": "Danh từ",
+            "definition": "Ngân hàng, nơi mọi người gửi và vay tiền.",
+            "example": "I need to go to the bank to withdraw some money.",
+            "collocations": ["bank account", "rob a bank"]
+          },
+          {
+            "pos": "Danh từ",
+            "definition": "Bờ sông.",
+            "example": "They sat on the river bank.",
+            "collocations": ["river bank"]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "word": "bar",
+    "familyWords": ["bartender (n)"],
+    "pronunciations": [
+      {
+        "ipa": "/bɑːr/",
+        "audio_uk": "https://dict.youdao.com/dictvoice?audio=bar&type=1",
+        "audio_us": "https://dict.youdao.com/dictvoice?audio=bar&type=2"
+      }
+    ],
+    "results": [
+      {
+        "meanings": [
+          {
+            "pos": "Danh từ",
+            "definition": "Quán bar, nơi bán đồ uống có cồn.",
+            "example": "He met his friends at the bar.",
+            "collocations": ["go to a bar", "at the bar"]
+          },
+          {
+            "pos": "Danh từ",
+            "definition": "Một thanh (socola, xà phòng...).",
+            "example": "She bought a bar of chocolate.",
+            "collocations": ["a bar of chocolate/soap"]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "word": "barrier",
+    "familyWords": [],
+    "pronunciations": [
+      {
+        "ipa": "/ˈbær.i.ər/",
+        "audio_uk": "https://dict.youdao.com/dictvoice?audio=barrier&type=1",
+        "audio_us": "https://dict.youdao.com/dictvoice?audio=barrier&type=2"
+      }
+    ],
+    "results": [
+      {
+        "meanings": [
+          {
+            "pos": "Danh từ",
+            "definition": "Rào cản, chướng ngại vật ngăn chặn sự di chuyển hoặc tiến bộ.",
+            "example": "Language can be a barrier to communication.",
+            "collocations": ["break down a barrier", "language barrier"]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "word": "base",
+    "familyWords": ["basic (adj)"],
+    "pronunciations": [
+      {
+        "ipa": "/beɪs/",
+        "audio_uk": "https://dict.youdao.com/dictvoice?audio=base&type=1",
+        "audio_us": "https://dict.youdao.com/dictvoice?audio=base&type=2"
+      }
+    ],
+    "results": [
+      {
+        "meanings": [
+          {
+            "pos": "Danh từ",
+            "definition": "Phần dưới cùng, nền tảng của một cái gì đó.",
+            "example": "The lamp has a heavy metal base.",
+            "collocations": ["at the base of"]
+          },
+          {
+            "pos": "Động từ",
+            "definition": "Dựa vào (để đưa ra quyết định, ý tưởng).",
+            "example": "The film is based on a true story.",
+            "collocations": ["be based on something"]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "word": "baseball",
+    "familyWords": [],
+    "pronunciations": [
+      {
+        "ipa": "/ˈbeɪs.bɑːl/",
+        "audio_uk": "https://dict.youdao.com/dictvoice?audio=baseball&type=1",
+        "audio_us": "https://dict.youdao.com/dictvoice?audio=baseball&type=2"
+      }
+    ],
+    "results": [
+      {
+        "meanings": [
+          {
+            "pos": "Danh từ",
+            "definition": "Môn bóng chày.",
+            "example": "He loves playing baseball on weekends.",
+            "collocations": ["play baseball", "baseball game/player"]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "word": "based",
+    "familyWords": ["base (n)"],
+    "pronunciations": [
+      {
+        "ipa": "/beɪst/",
+        "audio_uk": "https://dict.youdao.com/dictvoice?audio=based&type=1",
+        "audio_us": "https://dict.youdao.com/dictvoice?audio=based&type=2"
+      }
+    ],
+    "results": [
+      {
+        "meanings": [
+          {
+            "pos": "Tính từ",
+            "definition": "Có trụ sở tại, hoặc được dựa trên cái gì.",
+            "example": "The company is based in London.",
+            "collocations": ["based in", "based on"]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "word": "basic",
+    "familyWords": ["basically (adv)", "base (n)"],
+    "pronunciations": [
+      {
+        "ipa": "/ˈbeɪ.sɪk/",
+        "audio_uk": "https://dict.youdao.com/dictvoice?audio=basic&type=1",
+        "audio_us": "https://dict.youdao.com/dictvoice?audio=basic&type=2"
+      }
+    ],
+    "results": [
+      {
+        "meanings": [
+          {
+            "pos": "Tính từ",
+            "definition": "Cơ bản, thiết yếu, đơn giản.",
+            "example": "The hotel provides only basic facilities.",
+            "collocations": ["basic needs/skills", "basic information"]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "word": "basically",
+    "familyWords": ["basic (adj)"],
+    "pronunciations": [
+      {
+        "ipa": "/ˈbeɪ.sɪ.kəl.i/",
+        "audio_uk": "https://dict.youdao.com/dictvoice?audio=basically&type=1",
+        "audio_us": "https://dict.youdao.com/dictvoice?audio=basically&type=2"
+      }
+    ],
+    "results": [
+      {
+        "meanings": [
+          {
+            "pos": "Trạng từ",
+            "definition": "Về cơ bản (dùng để tóm tắt điểm quan trọng nhất).",
+            "example": "Basically, we need more time.",
+            "collocations": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "word": "basis",
+    "familyWords": ["base (n)", "basic (adj)"],
+    "pronunciations": [
+      {
+        "ipa": "/ˈbeɪ.sɪs/",
+        "audio_uk": "https://dict.youdao.com/dictvoice?audio=basis&type=1",
+        "audio_us": "https://dict.youdao.com/dictvoice?audio=basis&type=2"
+      }
+    ],
+    "results": [
+      {
+        "meanings": [
+          {
+            "pos": "Danh từ",
+            "definition": "Nền tảng, cơ sở (của một ý tưởng, phương pháp).",
+            "example": "They decided on the basis of the evidence.",
+            "collocations": ["on a regular/daily basis", "on the basis of something"]
+          }
+        ]
+      }
+    ]
+  }
+]

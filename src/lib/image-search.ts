@@ -1,109 +1,36 @@
 /**
- * Image Search Service using Pixabay API
- * Optimized for educational vocabulary flashcards.
+ * Image Search Service using Pollinations AI
+ * Optimized for generative text-to-image flashcards.
  * 
  * Strategy:
- * 1. Try `illustration` type first (vector-style, cleaner, more abstract - great for abstract words like "meaning")
- * 2. If no results, fall back to `photo` with concept-focused search terms
- * 3. Use category & editor_choice filters for highest quality
+ * 1. AI (Gemini) generates a highly descriptive 'image_search_query' prompt.
+ * 2. We pass this directly to Pollinations AI, which streams back an AI-generated image.
+ * 3. We return the URL directly for the browser/Telegram to consume.
  */
-
-const PIXABAY_API_KEY = process.env.PIXABAY_API_KEY;
-
-// Suffix hints to improve relevance for abstract vocabulary words
-const ILLUSTRATION_HINTS = 'concept illustration';
-const PHOTO_HINTS = 'isolated white background';
-
-// Words that are clearly abstract and benefit from illustrations
-const ABSTRACT_CONCEPTS = new Set([
-  'meaning', 'synonym', 'antonym', 'concept', 'idea', 'thought', 'memory',
-  'theory', 'knowledge', 'learning', 'education', 'wisdom', 'culture',
-  'habit', 'success', 'failure', 'goal', 'motivation', 'emotion', 'feeling',
-  'whose', 'grammar', 'vocabulary', 'internet', 'lingo', 'diversity',
-  'renewable', 'portable', 'analysis', 'feature', 'ready', 'golden',
-  'like', 'enjoy', 'attract', 'activities', 'fit', 'meaning', 'feature'
-]);
-
-/**
- * Build a smart search query that improves relevance for vocabulary images.
- * For abstract words → concept illustration style
- * For concrete/noun words → direct photo
- */
-function buildQuery(word: string): { query: string; imageType: string } {
-  const lowerWord = word.toLowerCase();
-
-  const isAbstract = ABSTRACT_CONCEPTS.has(lowerWord) || 
-    lowerWord.split(' ').length === 1 && lowerWord.length >= 6 && !/\d/.test(lowerWord);
-
-  if (isAbstract) {
-    return {
-      query: `${word} ${ILLUSTRATION_HINTS}`,
-      imageType: 'illustration'
-    };
-  }
-
-  // Multi-word phrases (e.g. "wide range", "catch the plane") → use photo
-  return {
-    query: word,
-    imageType: 'photo'
-  };
-}
 
 export async function searchImage(word: string, descriptiveQuery?: string): Promise<string | null> {
-  if (!PIXABAY_API_KEY) {
-    console.warn('PIXABAY_API_KEY is missing. Skipping image search.');
-    return null;
-  }
-
-  // Strategy:
-  // 1. If we have a descriptive AI query, use it first (best relevance)
-  if (descriptiveQuery) {
-    const aiResult = await fetchPixabay(descriptiveQuery, 'photo');
-    if (aiResult) return aiResult;
-  }
-
-  const { query: smartQuery, imageType } = buildQuery(word);
+  // Use Gemini's descriptive query if available, otherwise fall back to a standard prompt
+  const basePrompt = descriptiveQuery 
+    ? descriptiveQuery 
+    : `A clean, minimalist educational illustration of the concept: ${word}, white background, high quality`;
   
-  // Try 2: Smart type (illustration or photo) based on word itself
-  const result = await fetchPixabay(smartQuery, imageType);
-  if (result) return result;
+  // Seed it based on the word so the same word gets the same image consistently
+  // Create a simple hash representation from the word
+  const seed = word.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
 
-  // Try 3: Fallback to photo with original word
-  if (imageType === 'illustration') {
-    const photoResult = await fetchPixabay(word, 'photo');
-    if (photoResult) return photoResult;
-  }
+  // Build the Pollinations AI URL
+  const params = new URLSearchParams({
+    width: '800',
+    height: '500',
+    nologo: 'true',
+    seed: seed.toString(),
+    // Ensures safety filters are somewhat respected
+    safe: 'true' 
+  });
 
-  // Try 4: Last resort - all types, broadened search
-  return fetchPixabay(word, 'all');
-}
-
-async function fetchPixabay(query: string, imageType: string): Promise<string | null> {
-  try {
-    const params = new URLSearchParams({
-      key: PIXABAY_API_KEY!,
-      q: query,
-      image_type: imageType,
-      per_page: '5',
-      safesearch: 'true',
-      orientation: 'horizontal',
-      min_width: '400',
-    });
-
-    const response = await fetch(`https://pixabay.com/api/?${params.toString()}`);
-    const data = await response.json();
-
-    if (data.hits && data.hits.length > 0) {
-      // Prefer editor's choice if available
-      const editorChoice = data.hits.find((h: any) => h.editor_choice);
-      const best = editorChoice || data.hits[0];
-      console.log(`[Pixabay] "${query}" (${imageType}) → ${best.webformatURL}`);
-      return best.webformatURL;
-    }
-
-    return null;
-  } catch (err) {
-    console.error(`[Pixabay] Search failed for "${query}" (${imageType}):`, err);
-    return null;
-  }
+  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(basePrompt)}?${params.toString()}`;
+  
+  console.log(`[AI Image] Generated Pollinations URL for "${word}": ${url}`);
+  
+  return url;
 }

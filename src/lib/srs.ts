@@ -18,7 +18,7 @@ export interface SRSData {
  * Default FSRS v5 weights (Baseline optimized on millions of reviews)
  */
 const W = [
-  0.4025, 1.4612, 3.8738, 11.0,  // Initial stability for Again, Hard, Good, Easy
+  0.4025, 1.4612, 1.0, 3.0,     // Initial stability for Again, Hard, Good, Easy (Tuned for 1-day start)
   4.93, 0.94, 0.86,              // Difficulty update weights
   0.01, 1.49, 0.14,              // Stability update weights (Success)
   0.94, 2.18, 0.05, 0.34, 1.26,  // Stability update weights (Failure)

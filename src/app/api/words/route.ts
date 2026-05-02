@@ -4,6 +4,43 @@ import { enrichWord as performAIEnrichment } from '@/lib/ai-enrich';
 import { searchImage } from '@/lib/image-search';
 import { stabilityToLevel } from '@/lib/srs';
 
+// ── Telegram Helpers ──
+async function sendTelegramNotification(userId: string, text: string, imageUrl?: string | null) {
+  try {
+    const supabase = createServiceClient();
+    const { data: profile } = await supabase.from('profiles').select('telegram_id').eq('id', userId).single();
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+
+    if (profile?.telegram_id && botToken) {
+      const endpoint = imageUrl 
+        ? `https://api.telegram.org/bot${botToken}/sendPhoto` 
+        : `https://api.telegram.org/bot${botToken}/sendMessage`;
+
+      const body: any = {
+        chat_id: profile.telegram_id,
+        parse_mode: 'HTML',
+      };
+
+      if (imageUrl) {
+        body.photo = imageUrl;
+        body.caption = text;
+      } else {
+        body.text = text;
+      }
+
+      await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      return true;
+    }
+  } catch (err) {
+    console.warn('[Telegram] Notification failed:', err);
+  }
+  return false;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper: Lấy hoặc tạo "personal classroom" của user
 // ─────────────────────────────────────────────────────────────────────────────
@@ -35,11 +72,11 @@ async function getOrCreatePersonalClassroom(supabase: any, userId: string): Prom
 }
 
 /**
- * Background AI enrichment
+ * Background AI enrichment (Internal)
  */
-async function enrichWord(wordId: string, originalInput: string, customApiKey?: string) {
+async function enrichWord(wordId: string, originalInput: string, userId: string, customApiKey?: string, dictionaryData?: any, userTargetTranslation?: string) {
   try {
-    const parsed = await performAIEnrichment(originalInput, customApiKey);
+    const parsed = await performAIEnrichment(originalInput, customApiKey, dictionaryData, userTargetTranslation);
 
     const supabase = createServiceClient();
     const updateData = {
@@ -55,7 +92,6 @@ async function enrichWord(wordId: string, originalInput: string, customApiKey?: 
     // ── Global Image Cache & Search ──
     let imageUrl: string | null = null;
     
-    // 1. Check if word already has an image in the DB (Global Cache)
     const { data: cachedWord } = await supabase
       .from('words')
       .select('image_url')
@@ -66,22 +102,27 @@ async function enrichWord(wordId: string, originalInput: string, customApiKey?: 
 
     if (cachedWord?.image_url) {
       imageUrl = cachedWord.image_url;
-      console.log(`✓ Reusing cached image for "${parsed.english}"`);
     } else {
-      // 2. Search new image using AI descriptive query
       imageUrl = await searchImage(parsed.english, parsed.image_search_query);
     }
 
     // Final Update
-    const { error } = await supabase.from('words').update({
+    await supabase.from('words').update({
       ...updateData,
       image_url: imageUrl
     }).eq('id', wordId);
-    
-    if (error) console.error(`DB update failed for word "${originalInput}":`, error.message);
-    else console.log(`✓ AI enriched with synonyms/antonyms: "${originalInput}" → EN: "${parsed.english}" / VI: "${parsed.vietnamese}"`);
+      
+    // ── Stage 2: Rich Follow-up Notification ──
+    const richCaption = `🎉 <b>Phân tích hoàn tất!</b>\n\n` +
+      `🏷 <b>${parsed.english}</b> (${parsed.pos})\n` +
+      `🔊 ${parsed.ipa || ''}\n` +
+      `🇻🇳 ${parsed.vietnamese}\n\n` +
+      `📝 <i>${parsed.example}</i>`;
+
+    await sendTelegramNotification(userId, richCaption, imageUrl);
+
   } catch (err: any) {
-    console.error(`AI enrichment failed for word "${originalInput}":`, err.message);
+    console.error(`AI enrichment failed for "${originalInput}":`, err.message);
     try {
       const supabase = createServiceClient();
       await supabase.from('words').update({
@@ -133,7 +174,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // ── Save word immediately ──
+    // ── Save word immediately (Basic) ──
     const { data, error } = await supabase
       .from('words')
       .insert({
@@ -148,16 +189,57 @@ export async function POST(req: Request) {
 
     if (error) throw error;
 
+    // ── Stage 1: Fast Dictionary Lookup (Skip if already provided by Extension) ──
+    let dictData: any = null;
+    let initialTranslation = body.translation || '⏳ Analyzing...';
+    let initialIpa = body.ipa || '';
+    let initialPos = body.pos || '';
+    
+    // Only fetch if data was not manually selected in the extension
+    if (initialTranslation === '⏳ Analyzing...') {
+      try {
+        const dictRes = await fetch(`https://dict.minhqnd.com/api/v1/lookup?word=${encodeURIComponent(word)}&lang=en&def_lang=vi`);
+        if (dictRes.ok) {
+          dictData = await dictRes.json();
+          const actualDictData = dictData?.results?.[0];
+          // Extract primary meaning and IPA from the nested data
+          if (actualDictData?.meanings?.length > 0) {
+            initialIpa = actualDictData.pronunciations?.[0]?.ipa || '';
+            initialTranslation = actualDictData.meanings[0].definition || initialTranslation;
+            initialPos = actualDictData.meanings[0].pos || '';
+          }
+        }
+      } catch (dictErr) {
+        console.warn('[Dictionary API] Failed:', dictErr);
+      }
+    }
+
+    // Update DB with either manual or fetched data
+    await supabase.from('words').update({
+      translation: initialTranslation,
+      ipa: initialIpa,
+      pos: initialPos,
+      dictionary_data: dictData
+    }).eq('id', data.id);
+
+    // ── Stage 1: Immediate Notification (Basic) ──
+    const immediateText = `✅ <b>Đã lưu:</b> <code>${word}</code>\n` +
+      `${initialIpa ? `🔊 ${initialIpa}\n` : ''}` +
+      `🇻🇳 ${initialTranslation}\n` +
+      `<i>Đang phân tích hình ảnh...</i>`;
+      
+    sendTelegramNotification(userId, immediateText);
+
     const skipAI = Boolean(body.skipAI);
     if (!skipAI) {
-      // ── Wait for AI enrichment with user's personal key if available ──
+      // ── Background AI Enrichment (Stage 2) ──
       const { data: profile } = await supabase.from('profiles').select('gemini_api_key').eq('id', userId).single();
-      await enrichWord(data.id, word, profile?.gemini_api_key);
+      enrichWord(data.id, word, userId, profile?.gemini_api_key, dictData, initialTranslation);
     }
     
     return NextResponse.json({
       success: true,
-      message: `"${word}" saved${skipAI ? ' (pending AI)' : ' and analyzed'}!`,
+      message: `"${word}" saved!`,
       wordId: data.id,
     });
 
@@ -225,6 +307,28 @@ export async function GET(req: Request) {
     });
   } catch (error: any) {
     console.error('GET /api/words Error:', error.message);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PUT: Cập nhật nghĩa từ thủ công (Dùng cho tính năng chọn nghĩa)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function PUT(req: Request) {
+  try {
+    const { wordId, translation, pos, ipa } = await req.json();
+    if (!wordId) return NextResponse.json({ error: 'wordId is required' }, { status: 400 });
+
+    const supabase = createServiceClient();
+    const { error } = await supabase.from('words').update({
+      translation,
+      pos,
+      ipa
+    }).eq('id', wordId);
+
+    if (error) throw error;
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

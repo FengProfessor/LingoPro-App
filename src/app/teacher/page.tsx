@@ -313,41 +313,92 @@ export default function TeacherDashboard() {
                   </p>
                 </div>
               ) : (
-                <div className="divide-y">
-                  {students.map((s, i) => (
-                    <div key={s.student_id} className="flex items-center gap-4 px-6 py-4 hover:bg-muted/30 transition-colors">
-                      <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center font-bold text-primary text-sm shrink-0">
-                        {i + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm truncate">{s.student_name || 'Anonymous'}</p>
-                        <p className="text-xs text-muted-foreground truncate">{s.email}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-bold">{s.words_reviewed || 0} words</p>
-                        <p className="text-xs text-muted-foreground">reviewed</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-bold">{s.quizzes_taken || 0}</p>
-                        <p className="text-xs text-muted-foreground">quizzes</p>
-                      </div>
-                      <div className="text-right w-16">
-                        <p className={`text-sm font-bold ${
-                          (s.avg_quiz_accuracy || 0) > 0.8 ? 'text-emerald-500' : 
-                          (s.avg_quiz_accuracy || 0) > 0.6 ? 'text-amber-500' : 'text-rose-500'
-                        }`}>
-                          {s.avg_quiz_accuracy ? `${Math.round(s.avg_quiz_accuracy * 100)}%` : 'N/A'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">accuracy</p>
-                      </div>
-                      {(s.avg_quiz_accuracy || 0) > 0.85 && (
-                        <Star className="h-4 w-4 text-amber-400 fill-amber-400 shrink-0" />
-                      )}
-                      <Link href={`/teacher/student/${s.student_id}?class=${selectedClass.id}`}>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                      </Link>
-                    </div>
-                  ))}
+                <div className="divide-y overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-muted/50 border-b text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      <tr>
+                        <th className="px-6 py-3 w-12">#</th>
+                        <th className="px-6 py-3 min-w-[200px]">Student</th>
+                        <th className="px-6 py-3 text-center">CEFR</th>
+                        <th className="px-6 py-3 text-center">Mastery (P/A)</th>
+                        <th className="px-6 py-3 text-center">Consistency (LCS)</th>
+                        <th className="px-6 py-3 text-center">Status</th>
+                        <th className="px-6 py-3 w-10"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {students.map((s, i) => {
+                        const isDormant = s.last_active && (new Date().getTime() - new Date(s.last_active).getTime() > 3 * 24 * 60 * 60 * 1000);
+                        const isCramming = (s.lcs || 0) < 30 && (s.avg_quiz_accuracy || 0) > 0.8 && (s.quizzes_taken || 0) > 2;
+                        const isRisingStar = (s.lcs || 0) > 80 && (s.avg_quiz_accuracy || 0) > 0.8;
+                        const isAtRisk = (s.vms || 0) < 30 && (s.words_reviewed || 0) > 10;
+
+                        return (
+                          <tr key={s.student_id} className="group hover:bg-muted/30 transition-colors">
+                            <td className="px-6 py-4">
+                              <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center font-bold text-primary text-xs shrink-0">
+                                {i + 1}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm truncate">{s.student_name || 'Anonymous'}</p>
+                                <p className="text-xs text-muted-foreground truncate">{s.email}</p>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-black tracking-tighter ${
+                                (s as any).cefr_level?.startsWith('C') ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                                (s as any).cefr_level?.startsWith('B') ? 'bg-sky-100 text-sky-700 border border-sky-200' :
+                                'bg-slate-100 text-slate-600 border border-slate-200'
+                              }`}>
+                                {(s as any).cefr_level || 'A1'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <div className="inline-flex flex-col items-center">
+                                <div className="flex items-baseline gap-1">
+                                  <span className="text-sm font-bold text-emerald-500">{(s as any).active_vms || 0}%</span>
+                                  <span className="text-[10px] text-muted-foreground uppercase font-medium">Active</span>
+                                </div>
+                                <div className="w-20 h-1 bg-muted rounded-full mt-1 overflow-hidden flex">
+                                  <div 
+                                    className="h-full bg-emerald-500"
+                                    style={{ width: `${(s as any).active_vms || 0}%` }}
+                                  />
+                                  <div 
+                                    className="h-full bg-emerald-200 opacity-50"
+                                    style={{ width: `${(s.vms || 0) - ((s as any).active_vms || 0)}%` }}
+                                  />
+                                </div>
+                                <p className="text-[10px] text-muted-foreground mt-1 opacity-70">P: {s.vms || 0}%</p>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <div className="flex justify-center">
+                                {isDormant ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-600 border border-rose-200 uppercase">Dormant</span>
+                                ) : isRisingStar ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-600 border border-emerald-200 uppercase">Rising Star</span>
+                                ) : isCramming ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-600 border border-amber-200 uppercase">Cramming</span>
+                                ) : isAtRisk ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-600 border border-rose-200 uppercase">At Risk</span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200 uppercase">Normal</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <Link href={`/teacher/student/${s.student_id}?class=${selectedClass.id}`}>
+                                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                              </Link>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>

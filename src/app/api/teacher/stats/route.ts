@@ -40,7 +40,32 @@ export async function GET(req: Request) {
         .order('avg_quiz_accuracy', { ascending: false });
       
       if (studentErr) throw studentErr;
-      students = studentData || [];
+
+      // Map to include TESOL metrics (Simulated based on pedagogical heuristics for this prototype)
+      students = (studentData || []).map(s => {
+        const accuracy = s.avg_quiz_accuracy || 0;
+        const vms = s.vms || 0;
+        const words = s.words_reviewed || 0;
+
+        // Active Vocabulary is roughly 60-80% of passive vocabulary indexed by accuracy
+        const activeVms = Math.round(vms * (0.6 + (accuracy * 0.4)));
+        const depth = Math.round((vms + (s.lcs || 0)) / 2);
+
+        // CEFR Level Mapping
+        let cefr: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2' = 'A1';
+        if (words >= 1000) cefr = 'C2';
+        else if (words >= 600) cefr = 'C1';
+        else if (words >= 300) cefr = 'B2';
+        else if (words >= 150) cefr = 'B1';
+        else if (words >= 50) cefr = 'A2';
+
+        return {
+          ...s,
+          active_vms: activeVms,
+          communicative_depth: depth,
+          cefr_level: cefr
+        };
+      });
     }
 
     return NextResponse.json({

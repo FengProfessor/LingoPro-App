@@ -18,10 +18,18 @@ async function sendTelegram(chatId: string, text: string): Promise<any> {
 }
 
 export async function GET(req: Request) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get('userId');
+  const { searchParams } = new URL(req.url);
+  const userId = searchParams.get('userId');
+  return handleNotify(userId);
+}
 
+export async function POST(req: Request) {
+  const { userId } = await req.json();
+  return handleNotify(userId);
+}
+
+async function handleNotify(userId: string | null) {
+  try {
     if (!userId) return NextResponse.json({ error: 'userId is required' }, { status: 400 });
 
     const supabase = createServiceClient();

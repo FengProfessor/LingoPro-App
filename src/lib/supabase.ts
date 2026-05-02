@@ -115,8 +115,15 @@ export interface StudentProgress {
   email: string;
   classroom_id: string;
   words_reviewed: number;
+  total_words: number;
+  mastered_words: number;
+  vms: number; // General Vocabulary Mastery Score
+  active_vms: number; // Active (Productive) Mastery Score - TESOL Standard
+  lcs: number;
   avg_review_count: number;
   quizzes_taken: number;
   avg_quiz_accuracy: number;
   last_active?: string;
+  communicative_depth: number; // 0-100 score on contextual usage
+  cefr_level: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 }

@@ -1,0 +1,92 @@
+[
+  {
+    "word": "annoy",
+    "familyWords": ["annoyance (n)", "annoyed (adj)", "annoying (adj)"],
+    "pronunciations": [{"ipa": "/əˈnɔɪ/", "audio_uk": "https://dict.youdao.com/dictvoice?audio=annoy&type=1", "audio_us": "https://dict.youdao.com/dictvoice?audio=annoy&type=2"}],
+    "results": [{"meanings": [{"pos": "verb", "definition": "làm bực mình, quấy rầy", "example": "His constant complaining really annoys me.", "collocations": ["annoy somebody"]}]}]
+  },
+  {
+    "word": "annoyed",
+    "familyWords": ["annoy (v)", "annoying (adj)"],
+    "pronunciations": [{"ipa": "/əˈnɔɪd/", "audio_uk": "https://dict.youdao.com/dictvoice?audio=annoyed&type=1", "audio_us": "https://dict.youdao.com/dictvoice?audio=annoyed&type=2"}],
+    "results": [{"meanings": [{"pos": "adjective", "definition": "bực mình, khó chịu", "example": "I was annoyed that they hadn't turned up.", "collocations": ["be annoyed at/with", "slightly annoyed"]}]}]
+  },
+  {
+    "word": "annoying",
+    "familyWords": ["annoy (v)", "annoyed (adj)"],
+    "pronunciations": [{"ipa": "/əˈnɔɪ.ɪŋ/", "audio_uk": "https://dict.youdao.com/dictvoice?audio=annoying&type=1", "audio_us": "https://dict.youdao.com/dictvoice?audio=annoying&type=2"}],
+    "results": [{"meanings": [{"pos": "adjective", "definition": "gây bực tức, phiền phức", "example": "It's really annoying when a train is late.", "collocations": ["highly annoying", "annoying habit"]}]}]
+  },
+  {
+    "word": "annual",
+    "familyWords": ["annually (adv)"],
+    "pronunciations": [{"ipa": "/ˈæn.ju.əl/", "audio_uk": "https://dict.youdao.com/dictvoice?audio=annual&type=1", "audio_us": "https://dict.youdao.com/dictvoice?audio=annual&type=2"}],
+    "results": [{"meanings": [{"pos": "adjective", "definition": "xảy ra hàng năm, thường niên", "example": "The school trip has become an annual event.", "collocations": ["annual report", "annual income"]}]}]
+  },
+  {
+    "word": "another",
+    "familyWords": ["other (adj/pron)"],
+    "pronunciations": [{"ipa": "/əˈnʌð.ər/", "audio_uk": "https://dict.youdao.com/dictvoice?audio=another&type=1", "audio_us": "https://dict.youdao.com/dictvoice?audio=another&type=2"}],
+    "results": [{"meanings": [{"pos": "determiner, pronoun", "definition": "một cái/người khác, thêm một", "example": "Would you like another cup of tea?", "collocations": ["one another", "another time"]}]}]
+  },
+  {
+    "word": "answer",
+    "familyWords": ["unanswered (adj)"],
+    "pronunciations": [{"ipa": "/ˈɑːn.sər/", "audio_uk": "https://dict.youdao.com/dictvoice?audio=answer&type=1", "audio_us": "https://dict.youdao.com/dictvoice?audio=answer&type=2"}],
+    "results": [{"meanings": [{"pos": "noun", "definition": "câu trả lời", "example": "I can't find an answer to this problem.", "collocations": ["give an answer", "right answer"]}, {"pos": "verb", "definition": "trả lời", "example": "She answered the phone on the first ring.", "collocations": ["answer a question", "answer the door"]}]}]
+  },
+  {
+    "word": "anxious",
+    "familyWords": ["anxiously (adv)", "anxiety (n)"],
+    "pronunciations": [{"ipa": "/ˈæŋk.ʃəs/", "audio_uk": "https://dict.youdao.com/dictvoice?audio=anxious&type=1", "audio_us": "https://dict.youdao.com/dictvoice?audio=anxious&type=2"}],
+    "results": [{"meanings": [{"pos": "adjective", "definition": "lo lắng, băn khoăn", "example": "My mother always gets a bit anxious if we don't arrive when we say we will.", "collocations": ["anxious about", "feel anxious"]}]}]
+  },
+  {
+    "word": "any",
+    "familyWords": ["anybody (pron)", "anything (pron)"],
+    "pronunciations": [{"ipa": "/ˈen.i/", "audio_uk": "https://dict.youdao.com/dictvoice?audio=any&type=1", "audio_us": "https://dict.youdao.com/dictvoice?audio=any&type=2"}],
+    "results": [{"meanings": [{"pos": "determiner, pronoun", "definition": "bất kỳ (dùng trong câu hỏi và câu phủ định)", "example": "I don't have any money.", "collocations": ["hardly any", "any of"]}]}]
+  },
+  {
+    "word": "any more",
+    "familyWords": [],
+    "pronunciations": [{"ipa": "/ˌen.i ˈmɔːr/", "audio_uk": "https://dict.youdao.com/dictvoice?audio=anymore&type=1", "audio_us": "https://dict.youdao.com/dictvoice?audio=anymore&type=2"}],
+    "results": [{"meanings": [{"pos": "adverb", "definition": "nữa (dùng cuối câu phủ định)", "example": "He doesn't live here any more.", "collocations": ["not any more"]}]}]
+  },
+  {
+    "word": "anybody",
+    "familyWords": ["any (det)", "nobody (pron)"],
+    "pronunciations": [{"ipa": "/ˈen.iˌbɒd.i/", "audio_uk": "https://dict.youdao.com/dictvoice?audio=anybody&type=1", "audio_us": "https://dict.youdao.com/dictvoice?audio=anybody&type=2"}],
+    "results": [{"meanings": [{"pos": "pronoun", "definition": "bất kỳ ai", "example": "Is there anybody out there?", "collocations": ["hardly anybody", "anybody else"]}]}]
+  },
+  {
+    "word": "anyone",
+    "familyWords": ["any (det)", "no one (pron)"],
+    "pronunciations": [{"ipa": "/ˈen.i.wʌn/", "audio_uk": "https://dict.youdao.com/dictvoice?audio=anyone&type=1", "audio_us": "https://dict.youdao.com/dictvoice?audio=anyone&type=2"}],
+    "results": [{"meanings": [{"pos": "pronoun", "definition": "bất kỳ ai (giống anybody)", "example": "Has anyone seen my keys?", "collocations": ["anyone else"]}]}]
+  },
+  {
+    "word": "anything",
+    "familyWords": ["any (det)", "nothing (pron)"],
+    "pronunciations": [{"ipa": "/ˈen.i.θɪŋ/", "audio_uk": "https://dict.youdao.com/dictvoice?audio=anything&type=1", "audio_us": "https://dict.youdao.com/dictvoice?audio=anything&type=2"}],
+    "results": [{"meanings": [{"pos": "pronoun", "definition": "bất cứ thứ gì", "example": "Is there anything I can do to help?", "collocations": ["if anything", "anything else"]}]}]
+  },
+  {
+    "word": "anyway",
+    "familyWords": [],
+    "pronunciations": [{"ipa": "/ˈen.i.weɪ/", "audio_uk": "https://dict.youdao.com/dictvoice?audio=anyway&type=1", "audio_us": "https://dict.youdao.com/dictvoice?audio=anyway&type=2"}],
+    "results": [{"meanings": [{"pos": "adverb", "definition": "dù sao đi nữa", "example": "It's too expensive and anyway the colour doesn't suit you.", "collocations": ["anyway, ..."]}]}]
+  },
+  {
+    "word": "anywhere",
+    "familyWords": ["everywhere (adv)", "nowhere (adv)"],
+    "pronunciations": [{"ipa": "/ˈen.i.weər/", "audio_uk": "https://dict.youdao.com/dictvoice?audio=anywhere&type=1", "audio_us": "https://dict.youdao.com/dictvoice?audio=anywhere&type=2"}],
+    "results": [{"meanings": [{"pos": "adverb", "definition": "bất cứ đâu", "example": "I can't find my keys anywhere.", "collocations": ["go anywhere"]}]}]
+  },
+  {
+    "word": "apart",
+    "familyWords": ["apartness (n)"],
+    "pronunciations": [{"ipa": "/əˈpɑːt/", "audio_uk": "https://dict.youdao.com/dictvoice?audio=apart&type=1", "audio_us": "https://dict.youdao.com/dictvoice?audio=apart&type=2"}],
+    "results": [{"meanings": [{"pos": "adverb", "definition": "tách rời, cách xa", "example": "Stand with your feet wide apart.", "collocations": ["apart from", "fall apart"]}]}]
+  }
+]

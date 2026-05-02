@@ -12,36 +12,57 @@ export interface EnrichedWord {
 }
 
 /**
- * Analyzes a word using Gemini AI to get bilingual details and context.
- * Supports customApiKey for "Bring Your Own Key" (BYOK) cost saving.
+ * Analyzes a word using Gemini AI.
+ * If dictionaryData is provided, AI helps pick the best meaning for the context.
  */
-export async function enrichWord(originalInput: string, customApiKey?: string): Promise<EnrichedWord> {
-  // Use user-provided key or fallback to system key
+export async function enrichWord(originalInput: string, customApiKey?: string, dictionaryData?: any, userTargetTranslation?: string): Promise<EnrichedWord> {
   const apiKey = customApiKey || process.env.GEMINI_API_KEY || '';
   if (!apiKey) throw new Error('No Gemini API Key provided');
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  const model = genAI.getGenerativeModel({ 
+    model: 'gemini-2.0-flash',
+    generationConfig: {
+      responseMimeType: "application/json",
+    }
+  });
 
-  const prompt = `You are a bilingual dictionary. Analyze the word/phrase: "${originalInput}".
-Detect its language (English or Vietnamese).
+  const dictionaryContext = dictionaryData 
+    ? `Available dictionary definitions: ${JSON.stringify(dictionaryData?.results?.[0]?.meanings || [])}` 
+    : '';
+
+  const explicitContext = userTargetTranslation 
+    ? `CRITICAL INSTRUCTION: The user SPECIFICALLY selected this translation: "${userTargetTranslation}". You MUST use EXACTLY "${userTargetTranslation}" for the "vietnamese" field, without changing it. Base all your generated example sentences, synonyms, antonyms, and especially the image search query context strictly around THIS specific meaning.`
+    : `Detect language. If dictionary definitions above are provided, PICK the best one for a general learner.`;
+
+  const prompt = `You are a bilingual dictionary. Analyze: "${originalInput}".
+${explicitContext}
+${!userTargetTranslation ? dictionaryContext : ''}
+
 Return ONLY valid JSON with these exact keys:
-- "english": the English word/phrase (if input is Vietnamese, translate to English; if input is English, use it as-is in lowercase base form)
-- "vietnamese": the Vietnamese meaning (if input is English, translate to Vietnamese; if input is Vietnamese, use it as-is)  
-- "ipa": IPA phonetic transcription of the ENGLISH word
-- "pos": part of speech (noun/verb/adj/adv/prep/conj/det)
-- "example": one natural English sentence using the English word
+- "english": the English word (lowercase base form)
+- "vietnamese": the exact Vietnamese meaning requested (or best picked)
+- "ipa": IPA phonetic transcription
+- "pos": part of speech
+- "example": one natural English sentence
 - "synonyms": array of 3-5 common English synonyms
 - "antonyms": array of 3-5 common English antonyms
-- "image_search_query": a 2-4 word descriptive English string for image search. For abstract words, use symbolic or educational keywords (e.g., for "synonyms": "words meaning same icon", for "diversity": "different people hands together illustration", for "grammar": "sentence structure diagram"). Focus on high-quality, concept-driven visuals.
-Strict JSON only, no markdown fences, no prose.`;
+- "image_search_query": a 2-5 word descriptive English string for image generation that matched the context.
+Strict JSON only.`;
 
   try {
     const result = await model.generateContent(prompt);
     const rawText = result.response.text();
-    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error(`No JSON found in AI response`);
-    const parsed = JSON.parse(jsonMatch[0]);
+    
+    // Attempt multi-strategy parsing
+    let parsed: any;
+    try {
+      parsed = JSON.parse(rawText);
+    } catch {
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error(`Invalid AI response format`);
+      parsed = JSON.parse(jsonMatch[0]);
+    }
 
     return {
       english: (parsed.english || originalInput).toLowerCase().trim(),

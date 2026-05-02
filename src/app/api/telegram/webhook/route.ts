@@ -42,6 +42,14 @@ async function sendPhoto(chatId: string | number, photoUrl: string, extra: objec
   });
 }
 
+async function sendVoice(chatId: string | number, voiceUrl: string, extra: object = {}) {
+  await fetch(`${API}/sendVoice`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, voice: voiceUrl, disable_notification: true, ...extra }),
+  });
+}
+
 /** Parse IPA from raw JSON string or plain text */
 function parseIpa(raw?: string): string {
   if (!raw) return '';
@@ -108,34 +116,31 @@ function shuffleArray<T>(arr: T[]): T[] {
   return [...arr].sort(() => Math.random() - 0.5);
 }
 
-/** Get due words for a user */
+/** Get due words for a user (includes new words and words with SRS records) */
 async function getDueWords(supabase: any, userId: string, limit: number) {
-  const now = new Date().toISOString();
+  // 1. Fetch personal classroom ID
+  const { data: classroom } = await supabase
+    .from('classrooms')
+    .select('id')
+    .eq('teacher_id', userId)
+    .eq('name', '__personal__')
+    .single();
 
-  // Get words with SRS progress that are due
-  const { data: srsRecords } = await supabase
-    .from('srs_progress')
-    .select('word_id, review_count, next_review_date')
-    .eq('user_id', userId)
-    .lte('next_review_date', now)
-    .order('next_review_date', { ascending: true })
-    .limit(limit);
+  if (!classroom) return [];
 
-  if (!srsRecords || srsRecords.length === 0) return [];
+  // 2. Call the server-side RPC for 100% accuracy
+  const { data: words, error } = await supabase.rpc('get_due_words_list', {
+    p_user_id: userId,
+    p_classroom_id: classroom.id,
+    p_limit: limit
+  });
 
-  const wordIds = srsRecords.map((r: any) => r.word_id);
-  const { data: words } = await supabase
-    .from('words')
-    .select('id, word, translation, ipa, pos, example, synonyms, antonyms, image_url')
-    .in('id', wordIds);
+  if (error || !words) {
+    console.error('RPC get_due_words_list failed:', error?.message);
+    return [];
+  }
 
-  if (!words) return [];
-
-  // Merge srs level into word
-  return words.map((w: any) => {
-    const srs = srsRecords.find((r: any) => r.word_id === w.id);
-    return { ...w, reviewCount: srs?.review_count || 1 };
-  }).filter((w: any) => w.translation && !w.translation.toLowerCase().includes('failed')); // Filter invalid translations
+  return words.filter((w: any) => w.translation && !w.translation.toLowerCase().includes('failed')); 
 }
 
 /** Build 4 choices: 1 correct + 3 random distractors */
@@ -229,6 +234,14 @@ async function sendQuestion(chatId: string | number, session: any) {
   } else {
     await sendMessage(chatId, text, { reply_markup: { inline_keyboard: keyboard } });
   }
+
+  // Also send voice message for immediate playback (silent notification)
+  try {
+    await sendVoice(chatId, voiceUrl);
+  } catch (err) {
+    console.error('Failed to send voice message:', err);
+  }
+
   return { choices, correctIndex };
 }
 
@@ -266,15 +279,22 @@ async function handleStart(supabase: any, chatId: string, telegramId: string) {
     return;
   }
 
-  // Check due words
-  const now = new Date().toISOString();
-  const { data: srs } = await supabase
-    .from('srs_progress')
+  // Check due words (Using the RPC for 100% sync)
+  const { data: classroom } = await supabase
+    .from('classrooms')
     .select('id')
-    .eq('user_id', user.id)
-    .lte('next_review_date', now);
+    .eq('teacher_id', user.id)
+    .eq('name', '__personal__')
+    .single();
 
-  const dueCount = srs?.length || 0;
+  let dueCount = 0;
+  if (classroom) {
+    const { data: count, error: countErr } = await supabase.rpc('get_due_word_count', {
+      p_user_id: user.id,
+      p_classroom_id: classroom.id
+    });
+    if (!countErr) dueCount = count || 0;
+  }
 
   if (dueCount === 0) {
     await sendMessage(chatId,

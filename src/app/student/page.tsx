@@ -23,6 +23,7 @@ export default function StudentDashboard() {
   const [isRetryingAI, setIsRetryingAI] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [countdown, setCountdown] = useState<string>('');
+  const [selectedWord, setSelectedWord] = useState<any>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -151,6 +152,42 @@ export default function StudentDashboard() {
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.push('/auth');
+  };
+
+  const handleUpdateMeaning = async (wordId: string, translation: string, pos: string, ipa?: string) => {
+    try {
+      const res = await fetch('/api/words', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wordId, translation, pos, ipa }),
+      });
+      if (res.ok) {
+        toast.success('✅ Meaning updated!');
+        setSelectedWord(null);
+        if (profile?.id) loadData(profile.id);
+      } else {
+        throw new Error('Update failed');
+      }
+    } catch (err) {
+      toast.error('❌ Failed to update meaning');
+    }
+  };
+
+  const handleDeleteWord = async (wordId: string) => {
+    if (!confirm('Are you sure you want to delete this word?')) return;
+    try {
+      const res = await fetch('/api/words', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wordId }),
+      });
+      if (res.ok) {
+        toast.success('Word deleted');
+        if (profile?.id) loadData(profile.id);
+      }
+    } catch (err) {
+      toast.error('Failed to delete word');
+    }
   };
 
   const handleRetryAI = async () => {
@@ -326,10 +363,130 @@ export default function StudentDashboard() {
                     <span className="text-3xl font-black text-indigo-600 font-mono tracking-tighter">{countdown}</span>
                   </div>
                 )}
-             </div>
+              </div>
+          </section>
+
+          {/* ═══ WORD MANAGER (Meaning Selector) ═══ */}
+          <section className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+                <LayoutGrid className="h-6 w-6 text-primary" /> Your Vocabulary
+              </h3>
+              <Badge variant="outline" className="font-bold">{words.length} items</Badge>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {words.slice(0, 10).map((word: any) => (
+                <div key={word.id} className="bg-white border rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow group relative overflow-hidden">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <h4 className="text-xl font-black text-primary">{word.word}</h4>
+                      <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase">
+                         <span>{word.pos || '---'}</span>
+                         <span>{word.ipa || ''}</span>
+                      </div>
+                    </div>
+                    <Badge className={word.srsLevel >= 5 ? 'bg-emerald-500' : 'bg-primary/20 text-primary'}>
+                      Lvl {word.srsLevel || 1}
+                    </Badge>
+                  </div>
+                  
+                  <p className="text-sm font-semibold text-slate-600 line-clamp-2 mb-4">
+                    {word.translation}
+                  </p>
+
+                  <div className="flex items-center gap-2">
+                    {word.dictionary_data && (
+                      <button 
+                        onClick={() => setSelectedWord(word)}
+                        className="text-[10px] font-black uppercase tracking-wider text-indigo-500 hover:text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        Change Meaning
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => handleDeleteWord(word.id)}
+                      className="text-[10px] font-black uppercase tracking-wider text-rose-500 hover:text-rose-700 bg-rose-50 px-3 py-1.5 rounded-lg transition-colors ml-auto opacity-0 group-hover:opacity-100"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {words.length > 10 && (
+              <p className="text-center text-sm font-bold text-muted-foreground italic">
+                + {words.length - 10} more words in your list
+              </p>
+            )}
           </section>
         </div>
       </main>
+
+      {/* ═══ MEANING SELECTOR MODAL ═══ */}
+      {selectedWord && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setSelectedWord(null)} />
+          <div className="relative w-full max-w-xl bg-background rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b flex items-center justify-between bg-primary/5">
+              <div>
+                <h3 className="text-2xl font-black text-primary uppercase tracking-tight">{selectedWord.word}</h3>
+                <p className="text-xs font-bold text-muted-foreground">Select the correct meaning to study</p>
+              </div>
+              <button 
+                onClick={() => setSelectedWord(null)}
+                className="p-2 hover:bg-black/5 rounded-full transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="p-6 max-h-[60vh] overflow-y-auto space-y-4">
+              {/* @ts-ignore */}
+              {selectedWord.dictionary_data?.map((entry: any, eIdx: number) => (
+                <div key={eIdx} className="space-y-3">
+                  {entry.definitions.map((def: any, dIdx: number) => (
+                    <button
+                      key={`${eIdx}-${dIdx}`}
+                      onClick={() => handleUpdateMeaning(selectedWord.id, def.definition, def.pos, entry.pronunciations?.[0]?.ipa)}
+                      className="w-full text-left p-4 rounded-2xl border-2 border-transparent hover:border-primary hover:bg-primary/5 transition-all group"
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="outline" className="text-[10px] font-black uppercase text-primary border-primary/20">
+                          {def.pos || entry.pos || 'Word'}
+                        </Badge>
+                        {entry.pronunciations?.[0]?.ipa && (
+                          <span className="text-xs font-bold text-muted-foreground italic">
+                            {entry.pronunciations[0].ipa}
+                          </span>
+                        )}
+                      </div>
+                      <p className="font-bold text-slate-800 mb-2 leading-relaxed">
+                        {def.definition}
+                      </p>
+                      {def.example && (
+                        <p className="text-xs font-medium text-slate-500 italic">
+                          "{def.example}"
+                        </p>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            <div className="p-6 bg-slate-50 border-t flex justify-end">
+               <button 
+                onClick={() => setSelectedWord(null)}
+                className="px-6 py-2 font-black text-slate-500 hover:text-slate-700"
+               >
+                 Cancel
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MOBILE BOTTOM NAV */}
       <nav className="fixed bottom-0 inset-x-0 h-16 bg-background border-t md:hidden flex items-center justify-around z-[90]">

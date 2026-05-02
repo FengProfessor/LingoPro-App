@@ -75,14 +75,19 @@ export async function GET(req: Request) {
       const lastNotifiedCount = sessionData.last_notified_count || 0;
       const lastNotifiedTime = sessionData.last_notified_time || 0;
       
-      const hoursSinceLast = lastNotifiedTime ? (Date.now() - new Date(lastNotifiedTime).getTime()) / (1000 * 60 * 60) : 24;
+      const hoursSinceLast = lastNotifiedTime ? (Date.now() - new Date(lastNotifiedTime).getTime()) / (1000 * 60 * 60) : 100;
 
       // Anti-spam: Do NOT notify if the user is currently in a quiz
       if (sessionData.state === 'quiz') {
         continue;
       }
 
-      if (dueCount > lastNotifiedCount || (dueCount > 0 && hoursSinceLast >= 24)) {
+      // Notify if:
+      // 1. More words are due than last time (New words hit the bucket)
+      // 2. OR enough time has passed (6 hours) and there are still words due
+      const shouldNotify = (dueCount > lastNotifiedCount) || (dueCount > 0 && hoursSinceLast >= 6);
+
+      if (shouldNotify) {
         // A new word became due (bucket expired) OR it's a daily reminder
         const firstName = p.full_name?.split(' ').pop() || 'bạn';
 
