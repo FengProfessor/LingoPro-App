@@ -12,11 +12,11 @@ export async function POST(req: Request) {
         const { limit = 100 } = await req.json().catch(() => ({}));
         const supabase = createServiceClient();
 
-        // Lấy các từ chưa có ảnh (image_url IS NULL hoặc image_source = 'placeholder')
+        // Get words with no real image: null URL, or source is none/null
         const { data: words, error } = await supabase
             .from('global_dictionary')
             .select('word, data, image_url, image_source')
-            .or('image_url.is.null,image_source.eq.placeholder')
+            .or('image_url.is.null,image_source.is.null,image_source.eq.none')
             .limit(limit);
 
         if (error) {
