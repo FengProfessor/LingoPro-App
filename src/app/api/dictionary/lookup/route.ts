@@ -22,7 +22,7 @@ export async function GET(req: Request) {
 
     const { data, error } = await supabase
       .from('global_dictionary')
-      .select('word, data, tags')
+      .select('word, data, tags, image_url, image_source')
       .eq('word', word)
       .maybeSingle();
 
@@ -37,6 +37,8 @@ export async function GET(req: Request) {
       success: true,
       source: 'global_dictionary', // LingoPro có thể dùng để biết nguồn
       tags: data.tags || [],
+      image_url: data.image_url || null,
+      image_source: data.image_source || 'none',
       ...data.data, // Spread toàn bộ dữ liệu Bot cào: word, pronunciations, results, familyWords
     });
 

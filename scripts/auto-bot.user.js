@@ -97,20 +97,40 @@
         }
         try {
             const dir = isReverse ? 'desc' : 'asc';
+            console.log(`[LingoBot] Đang lấy từ từ Server: ${CONFIG.BASE_URL}...`);
             GM_xmlhttpRequest({
                 method: "GET",
                 url: `${CONFIG.BASE_URL}/api/bot/next-batch?size=${CONFIG.BATCH_SIZE}&direction=${dir}`,
                 onload: async (res) => {
-                    const data = JSON.parse(res.responseText);
-                    await runPrompt(data.words, data.remaining);
+                    console.log(`[LingoBot] Server phản hồi:`, res.status);
+                    try {
+                        const data = JSON.parse(res.responseText);
+                        if (data.error) {
+                            console.error(`[LingoBot] Lỗi Server:`, data.error);
+                            updateStatus("LỖI SERVER");
+                            return;
+                        }
+                        await runPrompt(data.words, data.remaining);
+                    } catch (e) {
+                        console.error(`[LingoBot] Lỗi parse JSON:`, e.message);
+                    }
                 },
-                onerror: () => { setTimeout(processNextBatch, 5000); }
+                onerror: (err) => { 
+                    console.error(`[LingoBot] KHÔNG KẾT NỐI ĐƯỢC SERVER (localhost:3000). Hãy chắc chắn bạn đã chạy npm run dev!`, err);
+                    updateStatus("MẤT KẾT NỐI");
+                    setTimeout(processNextBatch, 5000); 
+                }
             });
         } catch (e) { }
     }
 
     async function runPrompt(words, remaining) {
-        if (!words || words.length === 0) { updateStatus("XONG!"); return; }
+        if (!words || words.length === 0) { 
+            console.log("[LingoBot] Hết từ để cào!");
+            updateStatus("XONG!"); 
+            return; 
+        }
+        console.log(`[LingoBot] Bắt đầu cào ${words.length} từ. Còn lại: ${remaining}`);
         const prompt = `SYSTEM ROLE: Từ bây giờ, bạn là một cỗ máy xuất dữ liệu từ điển chuyên nghiệp. Trả về JSON ARRAY RAW, không markdown.
 OUTPUT FORMAT: [ { "word": "từ gốc", "familyWords": ["word (từ loại)"], "pronunciations": [{ "ipa": "/phiên âm/", "audio_uk": "...", "audio_us": "..." }], "results": [{ "meanings": [{ "pos": "...", "definition": "...", "example": "...", "collocations": [...] }] }] } ]
 Bắt đầu xử lý: ` + words.join(', ');
