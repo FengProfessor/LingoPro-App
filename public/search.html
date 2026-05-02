@@ -64,7 +64,7 @@
     </div>
     <div class="config-panel">
         <label>Server URL</label>
-        <input type="text" id="server-url" value="http://localhost:3000">
+        <input type="text" id="server-url" value="" placeholder="https://your-app.vercel.app">
     </div>
     <input type="text" id="search-input" placeholder="Nhập từ muốn tra (ví dụ: perspective, extreme...)..." autocomplete="off" spellcheck="false">
     <div id="loader" class="loader">Đang tìm kiếm...</div>
@@ -88,6 +88,12 @@
 <script>
     const searchInput = document.getElementById('search-input');
     const serverInput = document.getElementById('server-url');
+    
+    // Tự động lấy domain hiện tại làm server mặc định
+    const defaultServer = window.location.origin;
+    serverInput.value = defaultServer;
+    document.getElementById('server-label').textContent = defaultServer.replace(/^https?:\/\//, '');
+
     const resultCard = document.getElementById('result-card');
     const stateMsg = document.getElementById('state-msg');
     const loader = document.getElementById('loader');
