@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
     <title>LingoPro - Tra Cứu Từ Điển</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap" rel="stylesheet">
     <style>
@@ -204,10 +205,15 @@
         const img = document.getElementById('word-image');
         const imgBadge = document.getElementById('image-source-badge');
         if (data.image_url) {
-            img.src = data.image_url;
+            // Cờ proxy qua backend để tránh lỗi CORS/CORP khi load ảnh từ các nguồn khóa hotlink
+            const finalUrl = data.image_url.startsWith('http') 
+                ? `/api/image-proxy?url=${encodeURIComponent(data.image_url)}`
+                : data.image_url;
+                
+            img.src = finalUrl;
             img.alt = `Illustration for ${word}`;
             img.onerror = () => { banner.style.display = 'none'; };
-            const srcLabel = { pixabay: '📷 Pixabay', wikipedia: '📖 Wikipedia', placeholder: '🎨 Generated', ai_generated: '🤖 AI', none: '' };
+            const srcLabel = { duckduckgo: '📷 Web Photo', pixabay: '📷 Pixabay', wikipedia: '📖 Wikipedia', placeholder: '🎨 Generated', none: '' };
             imgBadge.textContent = srcLabel[data.image_source] || '';
             banner.style.display = 'block';
         } else {

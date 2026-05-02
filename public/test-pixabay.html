@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html>
+<body>
+<script>
+fetch('https://pixabay.com/api/?key=55379181-67723720b7ad00920f6b5655d&q=dog&image_type=photo')
+.then(r => r.json())
+.then(d => document.body.innerHTML = 'Success: ' + d.hits[0].webformatURL)
+.catch(e => document.body.innerHTML = 'Error: ' + e.message);
+</script>
+</body>
+</html>
