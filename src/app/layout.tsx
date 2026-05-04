@@ -21,6 +21,10 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: 'default',
     title: 'LingoPro',
+    startupImage: '/icons/icon-512.webp',
+  },
+  icons: {
+    apple: '/icons/icon-512.webp',
   },
   openGraph: {
     title: 'LingoPro',
