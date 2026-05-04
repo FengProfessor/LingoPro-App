@@ -1,11 +1,9 @@
 name: Build Mobile Apps
 
-
 on:
   push:
     branches: [ main ]
   workflow_dispatch: # Cho phép chạy bằng tay
-
 
 jobs:
   build-android:
@@ -13,12 +11,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -26,14 +22,11 @@ jobs:
           distribution: 'zulu'
           java-version: '21'
 
-
       - name: Install dependencies
         run: npm ci
 
-
       - name: Sync Capacitor
         run: npx cap sync android
-
 
       - name: Build Android APK
         working-directory: ./android
@@ -41,3 +34,30 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug
 
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync Capacitor
+        run: npx cap sync ios
+
+      - name: Upload iOS Project
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-project
+          path: ios/
