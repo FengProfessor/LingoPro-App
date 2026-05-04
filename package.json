@@ -11,6 +11,9 @@
   "dependencies": {
     "@auth/supabase-adapter": "^1.11.1",
     "@base-ui/react": "^1.2.0",
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/core": "^8.3.1",
+    "@capacitor/ios": "^8.3.1",
     "@google/generative-ai": "^0.24.1",
     "@mudbill/duckduckgo-images-api": "^2.0.1",
     "@supabase/auth-helpers-nextjs": "^0.15.0",
@@ -40,6 +43,8 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.3.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

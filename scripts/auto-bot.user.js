@@ -1,12 +1,13 @@
 // ==UserScript==
-// @name         AI Auto Dict Bot (Clean Menu - V1.9.6)
+// @name         LingoPro Universal Harvester (V2.0)
 // @namespace    http://tampermonkey.net/
-// @version      1.9.6
-// @description  Gỡ bỏ hoàn toàn giao diện trên màn hình, chỉ sử dụng Menu Tampermonkey cho gọn.
+// @version      2.0
+// @description  Cào đa nguồn: AI (Gemini/ChatGPT) & Từ điển (Cambridge).
 // @author       Antigravity
 // @match        *://gemini.google.com/*
 // @match        *://chatgpt.com/*
 // @match        *://aistudio.google.com/*
+// @match        *://dictionary.cambridge.org/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_registerMenuCommand
 // @grant        GM_notification
@@ -18,27 +19,42 @@
     if (window.top !== window.self) return;
 
     const CONFIG = {
-        BASE_URL: 'http://localhost:3000', // Đổi thành URL Vercel khi deploy (e.g., https://your-app.vercel.app)
+        BASE_URL: 'http://localhost:3000',
         BATCH_SIZE: 35,
         MAX_BATCHES: 30
     };
 
-    const isAI = window.location.hostname.includes('aistudio');
+    const host = window.location.hostname;
+    const isAI = host.includes('aistudio') || host.includes('gemini') || host.includes('chatgpt');
+    const isCambridge = host.includes('dictionary.cambridge.org');
 
     let isRunning = localStorage.getItem('auto_bot_running') === 'true';
+    let harvesterWords = JSON.parse(localStorage.getItem('harvester_words') || '[]');
     let batchCount = parseInt(localStorage.getItem('auto_bot_count') || '0', 10);
     let isReverse = localStorage.getItem('auto_bot_reverse') === 'true';
 
-    // --- CHỈ DÙNG MENU TAMPERMONKEY ---
-    GM_registerMenuCommand(`🚀 ${isRunning ? 'BOT ĐANG CHẠY...' : 'BẮT ĐẦU CÀO'}`, () => { startBot(); });
+    // --- MENU LỆNH ---
+    GM_registerMenuCommand(`🚀 ${isRunning ? 'BOT ĐANG CHẠY...' : 'BẮT ĐẦU CÀO AI'}`, () => { startAI(); });
+    GM_registerMenuCommand("📥 NHẬP DANH SÁCH TỪ (Bulk Harvest)", () => { promptBulkWords(); });
     GM_registerMenuCommand("🛑 DỪNG LẠI", () => { stopBot(); });
-    GM_registerMenuCommand(`🔄 ĐẢO CHIỀU: ${isReverse ? 'Z-A' : 'A-Z'} (Tự reset trang)`, () => {
+    GM_registerMenuCommand(`🔄 ĐẢO CHIỀU AI: ${isReverse ? 'Z-A' : 'A-Z'}`, () => {
         isReverse = !isReverse;
         localStorage.setItem('auto_bot_reverse', isReverse);
         location.reload();
     });
 
-    function startBot() {
+    function promptBulkWords() {
+        const input = prompt("Dán danh sách từ (cách nhau bằng dấu phẩy hoặc xuống dòng):");
+        if (!input) return;
+        const words = input.split(/[\n,]+/).map(w => w.trim()).filter(w => w.length > 0);
+        if (words.length > 0) {
+            localStorage.setItem('harvester_words', JSON.stringify(words));
+            localStorage.setItem('auto_bot_running', 'true');
+            window.location.href = `https://dictionary.cambridge.org/dictionary/english/${words[0]}`;
+        }
+    }
+
+    function startAI() {
         if (isRunning) return;
         isRunning = true; batchCount = 0;
         localStorage.setItem('auto_bot_running', 'true');
@@ -47,186 +63,119 @@
     }
 
     function stopBot() {
-        isRunning = false; localStorage.removeItem('auto_bot_running');
+        localStorage.removeItem('auto_bot_running');
+        localStorage.removeItem('harvester_words');
         location.reload();
     }
 
     function updateStatus(msg, wordsLeft = "") {
-        document.title = `[Bot: ${msg}] (${batchCount}/${MAX_BATCHES}) ${wordsLeft ? '- Còn ' + wordsLeft : ''}`;
+        document.title = `[Bot: ${msg}] ${wordsLeft ? '- Còn ' + wordsLeft : ''}`;
     }
 
-    // --- LOGIC CÀO (GIỮ NGUYÊN) ---
-
-    function deepQuerySelector(root, selector) {
-        const el = root.querySelector(selector);
-        if (el && el.offsetParent !== null) return el;
-        const elements = root.querySelectorAll('*');
-        for (let i = 0; i < elements.length; i++) {
-            if (elements[i].shadowRoot) {
-                const found = deepQuerySelector(elements[i].shadowRoot, selector);
-                if (found) return found;
-            }
-        }
-        return null;
-    }
-
-    function deepClickRun(root) {
-        if (!isAI) return false;
-        const buttons = root.querySelectorAll('button, div[role="button"]');
-        for (let b of buttons) {
-            if (b.offsetParent !== null && b.innerText && b.innerText.includes("Run")) {
-                b.click(); return true;
-            }
-        }
-        const all = root.querySelectorAll('*');
-        for (let el of all) {
-            if (el.shadowRoot) {
-                if (deepClickRun(el.shadowRoot)) return true;
-            }
-        }
-        return false;
-    }
-
-    async function processNextBatch() {
-        if (!isRunning) return;
-        if (batchCount >= MAX_BATCHES) {
-            localStorage.setItem('auto_bot_count', '0');
+    // --- ENGINE 1: CAMBRIDGE DICTIONARY ---
+    if (isCambridge && isRunning && harvesterWords.length > 0) {
+        window.addEventListener('load', async () => {
             await new Promise(r => setTimeout(r, 2000));
-            window.location.reload();
-            return;
-        }
+            const word = harvesterWords[0];
+            const data = extractCambridgeData(word);
+            if (data) await saveToLingoPro([data]);
+
+            const remaining = harvesterWords.slice(1);
+            localStorage.setItem('harvester_words', JSON.stringify(remaining));
+            if (remaining.length > 0) {
+                window.location.href = `https://dictionary.cambridge.org/dictionary/english/${remaining[0]}`;
+            } else {
+                localStorage.removeItem('auto_bot_running');
+                GM_notification({ text: "Xong danh sách!", title: "LingoPro" });
+            }
+        });
+    }
+
+    function extractCambridgeData(targetWord) {
         try {
-            const dir = isReverse ? 'desc' : 'asc';
-            console.log(`[LingoBot] Đang lấy từ từ Server: ${CONFIG.BASE_URL}...`);
-            GM_xmlhttpRequest({
-                method: "GET",
-                url: `${CONFIG.BASE_URL}/api/bot/next-batch?size=${CONFIG.BATCH_SIZE}&direction=${dir}`,
-                onload: async (res) => {
-                    console.log(`[LingoBot] Server phản hồi:`, res.status);
-                    try {
-                        const data = JSON.parse(res.responseText);
-                        if (data.error) {
-                            console.error(`[LingoBot] Lỗi Server:`, data.error);
-                            updateStatus("LỖI SERVER");
-                            return;
-                        }
-                        await runPrompt(data.words, data.remaining);
-                    } catch (e) {
-                        console.error(`[LingoBot] Lỗi parse JSON:`, e.message);
-                    }
-                },
-                onerror: (err) => { 
-                    console.error(`[LingoBot] KHÔNG KẾT NỐI ĐƯỢC SERVER (localhost:3000). Hãy chắc chắn bạn đã chạy npm run dev!`, err);
-                    updateStatus("MẤT KẾT NỐI");
-                    setTimeout(processNextBatch, 5000); 
-                }
-            });
-        } catch (e) { }
+            const headword = document.querySelector('.headword .hw')?.innerText || targetWord;
+            const pos = document.querySelector('.pos-header .pos')?.innerText || 'word';
+            const ipa = document.querySelector('.pos-header .ipa')?.innerText || '';
+            const defBlock = document.querySelector('.def-block');
+            if (!defBlock) return null;
+            const definition = defBlock.querySelector('.def')?.innerText.replace(/[\n\r]/g, '').trim() || '';
+            const examples = Array.from(defBlock.querySelectorAll('.examp .eg')).map(el => el.innerText.trim());
+            return {
+                word: headword, source: 'cambridge',
+                pronunciations: [{ ipa: ipa, audio_uk: '', audio_us: '' }],
+                results: [{ meanings: [{ pos: pos, definition: definition, example: examples[0] || '', collocations: [] }] }]
+            };
+        } catch (e) { return null; }
+    }
+
+    // --- ENGINE 2: AI SCRAPER ---
+    async function processNextBatch() {
+        if (!isRunning || !isAI) return;
+        const dir = isReverse ? 'desc' : 'asc';
+        GM_xmlhttpRequest({
+            method: "GET",
+            url: `${CONFIG.BASE_URL}/api/bot/next-batch?size=${CONFIG.BATCH_SIZE}&direction=${dir}`,
+            onload: async (res) => {
+                const data = JSON.parse(res.responseText);
+                await runPrompt(data.words, data.remaining);
+            }
+        });
     }
 
     async function runPrompt(words, remaining) {
-        if (!words || words.length === 0) { 
-            console.log("[LingoBot] Hết từ để cào!");
-            updateStatus("XONG!"); 
-            return; 
-        }
-        console.log(`[LingoBot] Bắt đầu cào ${words.length} từ. Còn lại: ${remaining}`);
-        const prompt = `SYSTEM ROLE: Từ bây giờ, bạn là một cỗ máy xuất dữ liệu từ điển chuyên nghiệp. Trả về JSON ARRAY RAW, không markdown.
-OUTPUT FORMAT: [ { "word": "từ gốc", "familyWords": ["word (từ loại)"], "pronunciations": [{ "ipa": "/phiên âm/", "audio_uk": "...", "audio_us": "..." }], "results": [{ "meanings": [{ "pos": "...", "definition": "...", "example": "...", "collocations": [...] }] }] } ]
-Bắt đầu xử lý: ` + words.join(', ');
+        if (!words || words.length === 0) { updateStatus("XONG!"); return; }
+        const prompt = `SYSTEM ROLE: Từ điển chuyên nghiệp. JSON ARRAY RAW.
+        FORMAT: [ { "word": "từ gốc", "familyWords": ["word (từ loại)"], "pronunciations": [{ "ipa": "/phiên âm/" }], "results": [{ "meanings": [{ "pos": "...", "definition": "...", "example": "..." }] }] } ]
+        Xử lý: ` + words.join(', ');
 
-        const inSelectors = isAI ? ['textarea', 'div[contenteditable="true"]', 'div[role="textbox"]'] : ['rich-textarea p', 'textarea'];
-        let editor = null;
-        for(let i = 0; i < 15; i++) {
-            for(let sel of inSelectors) {
-                editor = deepQuerySelector(document.documentElement, sel);
-                if (editor) break;
-            }
-            if (editor) break;
-            await new Promise(r => setTimeout(r, 500));
-        }
-        if (!editor) { isRunning = false; return; }
+        const editor = document.querySelector('textarea, div[contenteditable="true"]');
+        if (!editor) return;
         editor.focus();
-        if (editor.tagName === 'TEXTAREA' || editor.tagName === 'INPUT') { editor.value = prompt; }
-        else if (editor.isContentEditable) { document.execCommand('insertText', false, prompt); }
-        else { editor.textContent = prompt; }
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
+        document.execCommand('insertText', false, prompt);
         await new Promise(r => setTimeout(r, 1000));
-        if (isAI) deepClickRun(document.documentElement);
-        else {
-            let btn = deepQuerySelector(document.documentElement, '.send-button');
-            if (btn) btn.click();
-        }
+        const btn = document.querySelector('button[aria-label*="Send"], button.send-button');
+        if (btn) btn.click();
         updateStatus("Đang rình AI...", remaining);
         pollResult(words);
-    }
-
-    function findLatestTargetJSON(text, currentWords) {
-        let matches = [];
-        let start = 0;
-        while ((start = text.indexOf('[', start)) !== -1) {
-            let end = start;
-            while ((end = text.indexOf(']', end + 1)) !== -1) {
-                let slice = text.substring(start, end + 1);
-                try {
-                    let parsed = JSON.parse(slice);
-                    if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].word && parsed[0].word !== "từ gốc") {
-                        matches.push(parsed);
-                        break;
-                    }
-                } catch(e) { }
-            }
-            start++;
-        }
-        if (matches.length > 0) {
-            let latest = matches[matches.length - 1];
-            let isMatch = false;
-            for (let expected of currentWords) {
-                let exp = expected.toLowerCase().trim();
-                if (latest.some(item => item.word && item.word.toLowerCase().trim() === exp)) {
-                    isMatch = true; break;
-                }
-            }
-            if (isMatch) return latest;
-        }
-        return null;
     }
 
     async function pollResult(currentWords) {
         let startTime = Date.now();
         while (Date.now() - startTime < 120000) {
-            await new Promise(r => setTimeout(r, 800));
-            const fullText = document.body.innerText.toLowerCase();
-            const isRealQuotaError = (fullText.includes("reached your quota") || fullText.includes("rate limit") || fullText.includes("try again later")) 
-                                     && !fullText.includes('"word": "quotation"'); 
-
-            if (isRealQuotaError) {
-                updateStatus("HẾT QUOTA!");
-                isRunning = false; localStorage.removeItem('auto_bot_running');
-                GM_notification({ text: "Hết Quota rồi!", timeout: 10000 });
-                return;
-            }
-            if (fullText.includes("bạn đã dừng") || fullText.includes("wrong")) { window.location.reload(); return; }
-
-            const jsonData = findLatestTargetJSON(document.body.innerText, currentWords);
-            if (jsonData) {
-                await new Promise(resolve => {
-                    GM_xmlhttpRequest({
-                        method: "POST", url: `${CONFIG.BASE_URL}/api/bot/save-batch`,
-                        data: JSON.stringify(jsonData), headers: { "Content-Type": "application/json" },
-                        onload: () => resolve()
-                    });
-                });
-                batchCount++;
-                localStorage.setItem('auto_bot_count', batchCount.toString());
-                await new Promise(r => setTimeout(r, 1000));
-                processNextBatch();
-                return;
+            await new Promise(r => setTimeout(r, 2000));
+            const text = document.body.innerText;
+            if (text.includes('[') && text.includes(']')) {
+                const jsonData = findJSON(text, currentWords);
+                if (jsonData) {
+                    await saveToLingoPro(jsonData);
+                    processNextBatch();
+                    return;
+                }
             }
         }
-        window.location.reload();
+        location.reload();
     }
 
-    if (isRunning) setTimeout(processNextBatch, 2000);
+    function findJSON(text, words) {
+        try {
+            const start = text.lastIndexOf('[');
+            const end = text.indexOf(']', start);
+            const slice = text.substring(start, end + 1);
+            const parsed = JSON.parse(slice);
+            if (parsed.some(item => words.includes(item.word))) return parsed;
+        } catch(e) {}
+        return null;
+    }
 
+    async function saveToLingoPro(jsonData) {
+        return new Promise(resolve => {
+            GM_xmlhttpRequest({
+                method: "POST", url: `${CONFIG.BASE_URL}/api/bot/save-batch`,
+                data: JSON.stringify(jsonData), headers: { "Content-Type": "application/json" },
+                onload: () => resolve()
+            });
+        });
+    }
+
+    if (isRunning && isAI) setTimeout(processNextBatch, 2000);
 })();
