@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
+import { sendPushNotification } from '@/lib/notifications';
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 
@@ -105,6 +106,17 @@ export async function GET(req: Request) {
         };
 
         const sent = await sendTelegram(p.telegram_id, message, keyboard);
+        
+        // Also send Push Notification via OneSignal
+        try {
+          await sendPushNotification(
+            '⏰ Thời Điểm Vàng!',
+            `Chào ${firstName}, bạn có ${dueCount} từ cần ôn tập. Hãy ôn ngay nhé!`,
+            '/quiz'
+          );
+        } catch (err) {
+          console.error('OneSignal send error:', err);
+        }
 
         // Update watermark
         sessionData.last_notified_count = dueCount;
