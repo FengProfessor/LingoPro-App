@@ -37,9 +37,9 @@ export async function POST(req: Request) {
 
         console.log(`[FILL-IMAGES] Processing ${words.length} words...`);
         let updated = 0;
-        let pixabayCount = 0;
+        let ddgCount = 0;
         let wikiCount = 0;
-        let placeholderCount = 0;
+        let noneCount = 0;
 
         for (const row of words) {
             const wordData = row.data as any;
@@ -55,9 +55,9 @@ export async function POST(req: Request) {
 
             if (!updateErr) {
                 updated++;
-                if (source === 'pixabay') pixabayCount++;
+                if (source === 'duckduckgo') ddgCount++;
                 else if (source === 'wikipedia') wikiCount++;
-                else placeholderCount++;
+                else noneCount++;
                 console.log(`[FILL-IMAGES] ✓ "${row.word}" ← ${source}`);
             } else {
                 console.error(`[FILL-IMAGES] ✗ "${row.word}":`, updateErr.message);
@@ -70,7 +70,7 @@ export async function POST(req: Request) {
         return NextResponse.json({
             success: true,
             updated,
-            breakdown: { pixabay: pixabayCount, wikipedia: wikiCount, placeholder: placeholderCount },
+            breakdown: { duckduckgo: ddgCount, wikipedia: wikiCount, none: noneCount },
             message: `Đã cập nhật ${updated}/${words.length} từ`
         });
     } catch (e: any) {

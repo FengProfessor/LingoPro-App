@@ -45,8 +45,7 @@ export async function GET(req: Request) {
 
     const { data: profiles, error: profError } = await supabase
       .from('profiles')
-      .select('id, full_name, telegram_id')
-      .not('telegram_id', 'is', null);
+      .select('id, full_name, telegram_id');
 
     if (profError) throw profError;
     if (!profiles || profiles.length === 0) {
@@ -105,7 +104,10 @@ export async function GET(req: Request) {
           ],
         };
 
-        const sent = await sendTelegram(p.telegram_id, message, keyboard);
+        let sent = false;
+        if (p.telegram_id) {
+          sent = await sendTelegram(p.telegram_id, message, keyboard);
+        }
         
         // Also send Push Notification via OneSignal
         try {
